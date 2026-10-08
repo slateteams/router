@@ -1,0 +1,33 @@
+internal/proxy/enabled_providers_internal_test.go
+  s_e9601f642e1d47::t_8597c3aab187d6 12,366-408
+internal/proxy/fallback.go
+  s_a0ed24dbd49512::t_fd2a2fc5bec0af 8,380-386
+internal/proxy/fallback_test.go
+  s_a0ed24dbd49512::t_4f0ad2ea0ba270 22,1186-1218
+internal/proxy/service.go
+  s_e9601f642e1d47::t_526abd94eb8e85 6084,6158-6166
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "e5e3ae003210311fee34452bc428713f9629af09",
+  "prompts": {},
+  "sessions": {
+    "s_a0ed24dbd49512": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1035c-932d-7443-a9e0-f305761b7c94",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "Adam Creeger <adamcreeger@gmail.com>"
+    },
+    "s_e9601f642e1d47": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4a82cdf7-54e4-4302-8635-6aa617158a4a",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "Adam Creeger <adamcreeger@gmail.com>"
+    }
+  }
+}
