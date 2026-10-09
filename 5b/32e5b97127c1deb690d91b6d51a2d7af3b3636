@@ -1,0 +1,23 @@
+internal/proxy/dispatch_plan.go
+  s_a0ed24dbd49512::t_69f081d7fae5de 115-116,248,253
+internal/proxy/fallback.go
+  s_a0ed24dbd49512::t_e327d0d49b4f0f 351-353
+internal/proxy/subscription_slow_prefill_internal_test.go
+  s_a0ed24dbd49512::t_6f21ef74f2b3ce 16,20,24-25,49-50,57-64,88-90,106-148
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "5b32e5b97127c1deb690d91b6d51a2d7af3b3636",
+  "prompts": {},
+  "sessions": {
+    "s_a0ed24dbd49512": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1035c-932d-7443-a9e0-f305761b7c94",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "Adam Creeger <adamcreeger@gmail.com>"
+    }
+  }
+}
