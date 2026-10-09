@@ -1,0 +1,19 @@
+internal/proxy/subscription_slow_prefill_internal_test.go
+  s_e9601f642e1d47::t_a4a59a30d28167 119,121
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "c1489b89c9e0d0fe74aa6e765e76c3178396098e",
+  "prompts": {},
+  "sessions": {
+    "s_e9601f642e1d47": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4a82cdf7-54e4-4302-8635-6aa617158a4a",
+        "model": "weave-router"
+      },
+      "human_author": "Adam Creeger <adamcreeger@gmail.com>"
+    }
+  }
+}
