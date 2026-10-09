@@ -1,0 +1,25 @@
+internal/translate/claudecode_tool_filter.go
+  s_a0ed24dbd49512::t_b6123609a3021b 41,91
+internal/translate/claudecode_tool_filter_internal_test.go
+  s_a0ed24dbd49512::t_6eed940647e0de 77-79
+internal/translate/claudecode_tool_filter_test.go
+  s_a0ed24dbd49512::t_f1c8081c5dfb18 233,237,289,293
+internal/translate/deferred_send_message_test.go
+  s_a0ed24dbd49512::t_c8bce713fcd600 1-39
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "ff188a63501b1af6d84db5121c49d78de700e4fc",
+  "prompts": {},
+  "sessions": {
+    "s_a0ed24dbd49512": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1035c-932d-7443-a9e0-f305761b7c94",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "Adam Creeger <adamcreeger@gmail.com>"
+    }
+  }
+}
