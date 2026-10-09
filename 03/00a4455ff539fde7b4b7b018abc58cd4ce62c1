@@ -1,0 +1,19 @@
+internal/translate/claudecode_tool_filter.go
+  s_ed432d5fe4acae::t_e2b285976a21ca 195
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "0300a4455ff539fde7b4b7b018abc58cd4ce62c1",
+  "prompts": {},
+  "sessions": {
+    "s_ed432d5fe4acae": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a12303-af24-7511-8dc3-c6176dd6c021",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Adam Creeger <adamcreeger@gmail.com>"
+    }
+  }
+}
