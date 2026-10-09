@@ -1,0 +1,16 @@
+internal/proxy/fallback.go
+  h_1c75573cec5810 15,345-347
+internal/proxy/subscription_slow_prefill_internal_test.go
+  h_1c75573cec5810 58-77
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "dd516e65a53a58ed3b0b2cd28d72c0c0a1b27420",
+  "prompts": {},
+  "humans": {
+    "h_1c75573cec5810": {
+      "author": "Adam Creeger <adamcreeger@gmail.com>"
+    }
+  }
+}
