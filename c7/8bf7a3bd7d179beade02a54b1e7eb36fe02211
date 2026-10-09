@@ -1,0 +1,20 @@
+internal/proxy/dispatch_plan.go
+  h_1c75573cec5810 115
+internal/proxy/fallback.go
+  h_1c75573cec5810 344,350-357,668
+internal/proxy/subscription_slow_prefill_internal_test.go
+  h_1c75573cec5810 75,78-127
+internal/proxy/subscription_state_models.go
+  h_1c75573cec5810 116
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "c78bf7a3bd7d179beade02a54b1e7eb36fe02211",
+  "prompts": {},
+  "humans": {
+    "h_1c75573cec5810": {
+      "author": "Adam Creeger <adamcreeger@gmail.com>"
+    }
+  }
+}
