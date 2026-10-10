@@ -1,0 +1,21 @@
+internal/providers/openai/client.go
+  s_a0ed24dbd49512::t_4ba027a4b06f57 44,335-337
+internal/providers/openai/codex_cache_affinity_internal_test.go
+  s_a0ed24dbd49512::t_17230bb7fac267 39,55
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "075d508e5c2c6feb2cfe8f336a0c77cccd28109d",
+  "prompts": {},
+  "sessions": {
+    "s_a0ed24dbd49512": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1035c-932d-7443-a9e0-f305761b7c94",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "Adam Creeger <adamcreeger@gmail.com>"
+    }
+  }
+}
