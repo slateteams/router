@@ -49,7 +49,7 @@ func TestCodexCacheDiagnosticsFingerprintChangesWithoutLoggingContent(t *testing
 		require.JSONEq(t, string(data), string(receivedBody), "diagnostics must not rewrite the outbound body")
 		lines := strings.Split(strings.TrimSpace(output.String()), "\n")
 		require.Len(t, lines, 1, "subscription dispatch must emit one bounded fingerprint event")
-		for _, marker := range []string{"PRIVATE_INSTRUCTIONS_MARKER", "PRIVATE_TOOL_MARKER", "PRIVATE_HISTORY_MARKER", "PRIVATE_AFFINITY_MARKER", "PRIVATE_BEARER_MARKER", "PRIVATE_ACCOUNT_MARKER", "synthetic-paid-key"} {
+		for _, marker := range []string{"PRIVATE_INSTRUCTIONS_MARKER", "PRIVATE_TOOL_MARKER", "PRIVATE_HISTORY_MARKER", "PRIVATE_AFFINITY_MARKER", "PRIVATE_BEARER_MARKER", "PRIVATE_ACCOUNT_MARKER", "synthetic-paid-key", "OTHER_PRIVATE_ACCOUNT_MARKER"} {
 			require.NotContains(t, output.String(), marker)
 		}
 		require.Less(t, output.Len(), 3000, "diagnostic size must not grow with conversation size")
@@ -61,7 +61,7 @@ func TestCodexCacheDiagnosticsFingerprintChangesWithoutLoggingContent(t *testing
 	require.Equal(t, "synthetic-request", first["request_id"])
 	require.Equal(t, "synthetic-thread", first["session_key"])
 	repeated := proxy(base)
-	for _, key := range []string{"fingerprint_epoch", "instructions_hmac", "tools_hmac", "request_options_hmac", "session_affinity_hmac", "input_prefix_1024_hmac", "input_prefix_4096_hmac", "input_prefix_16384_hmac", "input_prefix_65536_hmac", "input_prefix_262144_hmac"} {
+	for _, key := range []string{"fingerprint_epoch", "instructions_hmac", "tools_hmac", "request_options_hmac", "session_affinity_hmac", "account_hmac", "input_prefix_1024_hmac", "input_prefix_4096_hmac", "input_prefix_16384_hmac", "input_prefix_65536_hmac", "input_prefix_262144_hmac"} {
 		require.NotEmpty(t, first[key], key)
 		require.Equal(t, first[key], repeated[key], key)
 	}
@@ -79,6 +79,7 @@ func TestCodexCacheDiagnosticsFingerprintChangesWithoutLoggingContent(t *testing
 	base["prompt_cache_key"] = "changed-affinity"
 	changedAffinity := proxy(base)
 	require.NotEqual(t, changedOptions["session_affinity_hmac"], changedAffinity["session_affinity_hmac"])
+	// The first item exceeds every checkpoint; appending preserves those bytes.
 	base["input"] = []any{map[string]any{"role": "user", "content": strings.Repeat("PRIVATE_HISTORY_MARKER ", 13000)}, map[string]any{"role": "user", "content": "appended turn"}}
 	appended := proxy(base)
 	require.Equal(t, changedAffinity["input_prefix_262144_hmac"], appended["input_prefix_262144_hmac"])
@@ -92,11 +93,16 @@ func TestCodexCacheDiagnosticsFingerprintChangesWithoutLoggingContent(t *testing
 	require.NotEqual(t, rewritten["fingerprint_epoch"], newEpoch["fingerprint_epoch"])
 	require.NotEqual(t, rewritten["instructions_hmac"], newEpoch["instructions_hmac"])
 
+	ctx = observability.WithLogger(codexCtx("PRIVATE_BEARER_MARKER", "OTHER_PRIVATE_ACCOUNT_MARKER"), slog.New(slog.NewJSONHandler(&output, nil)))
+	changedAccount := proxy(base)
+	require.NotEqual(t, newEpoch["account_hmac"], changedAccount["account_hmac"])
+	require.Equal(t, newEpoch["instructions_hmac"], changedAccount["instructions_hmac"])
+
 	// Paid requests must not acquire subscription-specific logging.
 	output.Reset()
 	paidCtx := observability.WithLogger(context.Background(), slog.New(slog.NewJSONHandler(&output, nil)))
 	data, err := json.Marshal(base)
 	require.NoError(t, err)
 	require.NoError(t, client.Proxy(paidCtx, router.Decision{Model: "gpt-6.1-sol", Provider: providers.ProviderOpenAI}, providers.PreparedRequest{Endpoint: providers.EndpointResponses, Body: data}, httptest.NewRecorder(), httptest.NewRequest(http.MethodPost, "/v1/messages", nil)))
-	require.Empty(t, output.String())
+	require.NotContains(t, output.String(), "Codex cache request fingerprints")
 }

@@ -342,7 +342,7 @@ func (c *Client) Proxy(ctx context.Context, decision router.Decision, prep provi
 	}
 
 	if useCodex {
-		c.logCodexCacheFingerprints(ctx, reqBody, upstream.Header.Get(codexSessionIDHeader))
+		c.logCodexCacheFingerprints(ctx, reqBody, upstream.Header.Get(codexSessionIDHeader), upstream.Header.Get(codexAccountIDHeader))
 	}
 
 	t := timing.TimingFrom(ctx)
