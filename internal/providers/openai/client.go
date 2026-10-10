@@ -4,6 +4,7 @@ package openai
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
 	"errors"
 	"fmt"
 	"io"
@@ -119,7 +120,8 @@ type Client struct {
 	outputStall time.Duration
 	// codexBaseURL is the Codex (ChatGPT) subscription backend base URL;
 	// tests override it to point at an httptest server.
-	codexBaseURL string
+	codexBaseURL        string
+	cacheFingerprintKey []byte
 }
 
 func NewClient(apiKey, baseURL string) *Client {
@@ -151,11 +153,12 @@ func newClientWithModelIDMap(apiKey, baseURL string, headerTimeout time.Duration
 		baseURL = DefaultBaseURL
 	}
 	return &Client{
-		apiKey:       apiKey,
-		baseURL:      baseURL,
-		modelIDMap:   modelIDMap,
-		codexBaseURL: chatGPTCodexBaseURL,
-		http:         httputil.NewClient(httputil.NewTransportWithResponseHeaderTimeout(5*time.Second, 5*time.Second, headerTimeout)),
+		apiKey:              apiKey,
+		baseURL:             baseURL,
+		modelIDMap:          modelIDMap,
+		codexBaseURL:        chatGPTCodexBaseURL,
+		cacheFingerprintKey: []byte(rand.Text()),
+		http:                httputil.NewClient(httputil.NewTransportWithResponseHeaderTimeout(5*time.Second, 5*time.Second, headerTimeout)),
 	}
 }
 
@@ -336,6 +339,10 @@ func (c *Client) Proxy(ctx context.Context, decision router.Decision, prep provi
 		if affinity != "" && httpguts.ValidHeaderFieldValue(affinity) {
 			upstream.Header.Set(codexSessionIDHeader, affinity)
 		}
+	}
+
+	if useCodex {
+		c.logCodexCacheFingerprints(ctx, reqBody, upstream.Header.Get(codexSessionIDHeader))
 	}
 
 	t := timing.TimingFrom(ctx)
