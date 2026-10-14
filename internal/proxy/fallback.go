@@ -5,13 +5,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"net/http"
 	"strconv"
-	"sync"
 	"sync/atomic"
 	"time"
 
-	"weave-os/router/internal/billing"
 	"weave-os/router/internal/inference"
 	"weave-os/router/internal/providers"
 	"weave-os/router/internal/router"
@@ -38,15 +37,7 @@ type preludeBuffer struct {
 	bufBody        bytes.Buffer
 	sealed         bool
 	preludeSent    bool
-	// committed is atomic because a rotation-budget timer reads it while the
-	// provider stream writes. commitMu orders that timer's abort against commit.
-	committed atomic.Bool
-	commitMu  sync.Mutex
-	// attemptGeneration advances on Discard so a late budget timer from a
-	// failed attempt cannot block the next attempt's commit.
-	attemptGeneration uint64
-	abortedGeneration uint64
-	commitAborted     bool
+	committed      atomic.Bool
 }
 
 func newPreludeBuffer(w http.ResponseWriter) *preludeBuffer {
@@ -143,10 +134,6 @@ func (b *preludeBuffer) Discard() {
 	b.bufStatus = 0
 	b.bufBody.Reset()
 	b.sealed = false
-	b.commitMu.Lock()
-	b.commitAborted = false
-	b.attemptGeneration++
-	b.commitMu.Unlock()
 	if b.preludeSent {
 		return
 	}
@@ -161,40 +148,10 @@ func (b *preludeBuffer) Discard() {
 	}
 }
 
-// The budget timer and the provider stream race; once the timer cancels an
-// attempt, output that arrives before cancellation propagates must not reach
-// the client as a committed response that dispatch already abandoned.
-var errAttemptAborted = errors.New("subscription attempt aborted before commit")
-
-func (b *preludeBuffer) currentAttemptGeneration() uint64 {
-	b.commitMu.Lock()
-	defer b.commitMu.Unlock()
-	return b.attemptGeneration
-}
-
-func (b *preludeBuffer) abortIfUncommitted(attemptGeneration uint64, abort func()) {
-	b.commitMu.Lock()
-	defer b.commitMu.Unlock()
-	if b.committed.Load() || attemptGeneration != b.attemptGeneration {
-		return
-	}
-	b.commitAborted = true
-	b.abortedGeneration = attemptGeneration
-	abort()
-}
-
 func (b *preludeBuffer) commit() error {
-	b.commitMu.Lock()
-	if b.committed.Load() {
-		b.commitMu.Unlock()
+	if b.committed.Swap(true) {
 		return nil
 	}
-	if b.commitAborted && b.abortedGeneration == b.attemptGeneration {
-		b.commitMu.Unlock()
-		return errAttemptAborted
-	}
-	b.committed.Store(true)
-	b.commitMu.Unlock()
 	if !b.preludeSent {
 		if b.bufStatus != 0 {
 			b.inner.WriteHeader(b.bufStatus)
@@ -270,6 +227,7 @@ var errDispatchWithoutPurpose = errors.New("dispatchWithFallback: no inference p
 // error. On final-attempt error it flushes the upstream's own envelope to w
 // instead of a generic 502.
 func (s *Service) dispatchWithFallback(ctx context.Context, in failoverInputs) (winnerIdx int, err error) {
+	ctx = s.withSubscriptionFundingAuthorization(ctx, in.subscriptionStateHeaders)
 	if in.subscriptionStateRequest != nil && subscriptionStateModelsEnabled(ctx) && in.buildAlternative != nil {
 		return s.dispatchSubscriptionStateModels(ctx, in)
 	}
@@ -331,29 +289,11 @@ func committed(b *preludeBuffer) bool {
 	return b.Committed()
 }
 
-// sameBindingRetryBudget caps wall-clock across managed-subscription account
-// rotations on one binding; per-target transient retries are bounded by the
-// dispatch executor.
-const sameBindingRetryBudget = 10 * time.Second
-
-// Subscription-only inference has no paid rescue. Allow slow prefill and
-// reasoning to reach first output instead of treating them as failed retries.
-const subscriptionOnlyFirstOutputTimeout = 120 * time.Second
-
-func (s *Service) subscriptionRotationTimeout(ctx context.Context) time.Duration {
-	// Attempt-level restrictions can still have funded exhausted-state recovery.
-	// Extend waiting only when the entire request has no paid funding.
-	if billing.SubscriptionOnlyFromContext(ctx) && !linkedFirst(ctx) {
-		return subscriptionOnlyFirstOutputTimeout
-	}
-	// Self-hosted deployments do not run billing middleware. An explicit empty
-	// deployment key set plus no request-paid credentials also leaves no rescue.
-	noPaidKeys := s.deploymentKeyedProviders != nil && len(s.deploymentKeyedProviders) == 0 && len(BuildCredentialsMap(externalKeysFromContext(ctx))) == 0
-	if !linkedFirst(ctx) && noPaidKeys && (CredentialsFromContext(ctx) == nil || servedOnSubscription(ctx)) {
-		return subscriptionOnlyFirstOutputTimeout
-	}
-	return sameBindingRetryBudget
-}
+// subscriptionRotationBudget bounds how long included-capacity accounts and
+// model alternatives may be leased and admitted, shared across one request's
+// rotation walk. It never cancels an attempt already in flight: provider
+// header/stream watchdogs and the caller own inference lifetime.
+const subscriptionRotationBudget = 10 * time.Second
 
 // clockNow reads the current time through the injectable clock, falling back
 // to time.Now when no fake is wired.
@@ -395,6 +335,13 @@ func (s *Service) resolveBindingsForDispatch(ctx context.Context, decision route
 		// Legacy "all registered" mode — fall back to single-attempt to
 		// avoid retrying on providers whose keys aren't actually wired.
 		return []catalog.ProviderBinding{primary}
+	}
+	// A linked subscription makes the selected native binding available
+	// without a deployment API key. Extend only this request's binding set;
+	// lease/funding guards still control subscription exhaustion and fallback.
+	if managedSubscriptionCanServe(ctx, decision.Provider, decision.Model) && s.supportsSubscriptionTransport(decision.Provider) {
+		available = maps.Clone(available)
+		available[decision.Provider] = struct{}{}
 	}
 	// Exclusions must hold during failover too, or a fallback binding could
 	// resurrect a provider the scorer already filtered out.
@@ -644,7 +591,6 @@ func attemptIdxLabel(i int) string {
 type subscriptionOnlyAttemptKey struct{}
 type subscriptionAPIOnlyKey struct{}
 type subscriptionRotationBudgetKey struct{}
-type subscriptionRotationBudgetDisabledKey struct{}
 
 func subscriptionAttemptOnly(ctx context.Context) bool {
 	value, _ := ctx.Value(subscriptionOnlyAttemptKey{}).(bool)
@@ -655,16 +601,14 @@ func subscriptionAPIOnly(ctx context.Context) bool {
 	return value
 }
 func (s *Service) dispatchSubscriptionAlternatives(ctx context.Context, in failoverInputs) (int, error) {
-	budget, cancel := context.WithTimeout(ctx, s.subscriptionRotationTimeout(ctx))
-	defer cancel()
-	ctx = context.WithValue(ctx, subscriptionRotationBudgetKey{}, budget)
+	ctx, budget := withSubscriptionAdmissionBudget(ctx)
 	selected := in.initialDecision
 	if usage, _ := ctx.Value(ManagedSubscriptionUsageContextKey{}).(*ManagedSubscriptionUsage); usage != nil {
 		usage.IntendedModel = selected.Model
 	}
 	targets := append([]router.Decision{selected}, in.alternatives...)
 	for index, target := range targets {
-		if ctx.Err() != nil || budget.Err() != nil {
+		if ctx.Err() != nil || budget.remaining <= 0 {
 			break
 		}
 		attemptIn := in
@@ -698,6 +642,9 @@ func (s *Service) dispatchSubscriptionAlternatives(ctx context.Context, in failo
 		if committed(in.buf) || ctx.Err() != nil {
 			return winner, attemptErr
 		}
+	}
+	if ctx.Err() != nil {
+		return 0, ctx.Err()
 	}
 	if paidFallbackForbidden(ctx) {
 		return 0, ErrSubscriptionPoolExhausted

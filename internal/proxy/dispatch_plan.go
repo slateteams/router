@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
-	"time"
 
 	"weave-os/router/internal/dispatch"
 	"weave-os/router/internal/inference"
@@ -111,16 +110,8 @@ func (s *Service) dispatchPlanned(ctx context.Context, in failoverInputs, plan i
 
 	lastIdx := 0
 	managedBinding := false
-	rotationStart := s.clockNow()
-	rotationTimeout := s.subscriptionRotationTimeout(ctx)
-	rotationCtx, cancelRotation := context.WithTimeout(ctx, rotationTimeout)
-	defer cancelRotation()
-	if ctx.Value(subscriptionRotationBudgetDisabledKey{}) != true {
-		if existing, _ := ctx.Value(subscriptionRotationBudgetKey{}).(context.Context); existing != nil {
-			cancelRotation()
-			rotationCtx = existing
-		}
-	}
+	ctx, rotationBudget := withSubscriptionAdmissionBudget(ctx)
+	ctx = withClientAppRefusalPaidFallback(ctx, in.initialDecision)
 	transport := dispatch.Transport{
 		OperationID: string(in.purpose),
 		Committed:   func() bool { return committed(in.buf) },
@@ -153,7 +144,7 @@ func (s *Service) dispatchPlanned(ctx context.Context, in failoverInputs, plan i
 		decision := in.initialDecision
 		decision.Provider = attempt.Target.Provider
 		guarded := dispatch.GuardTarget(client, attempt.Target)
-		retryStart := rotationStart
+		var lastSubscriptionErr error
 		if usage, _ := ctx.Value(ManagedSubscriptionUsageContextKey{}).(*ManagedSubscriptionUsage); usage != nil && usage.IntendedModel == "" {
 			usage.IntendedModel = decision.Model
 		}
@@ -173,9 +164,26 @@ func (s *Service) dispatchPlanned(ctx context.Context, in failoverInputs, plan i
 				}
 				attemptCtx = resolveAndInjectCredentials(withSuppressedClaudeSubscription(withSuppressedCodexSubscription(attemptCtx)), decision.Provider, decision.Model, http.Header{})
 			}
-			credentialCtx, lease, managedAttempt, leaseErr := s.leaseManagedSubscription(withSubscriptionRotationDeadline(attemptCtx, rotationCtx), decision.Provider, decision.Model)
+			if !subscriptionAPIOnly(attemptCtx) && rotationBudget.remaining <= 0 {
+				return dispatchAbort{err: s.afterSubscriptionRotationBudget(ctx, decision, account, ErrSubscriptionPoolUnavailable)}
+			}
+			leaseCtx, finishLease := rotationBudget.leaseContext(attemptCtx, s.clockNow)
+			if subscriptionAPIOnly(attemptCtx) {
+				finishLease()
+				leaseCtx = attemptCtx
+				finishLease = func() {}
+			}
+			credentialCtx, lease, managedAttempt, leaseErr := s.leaseManagedSubscription(leaseCtx, decision.Provider, decision.Model)
+			finishLease()
+			if ctx.Err() != nil {
+				lease.Release()
+				return ctx.Err()
+			}
 			if leaseErr != nil {
-				return dispatchAbort{err: leaseErr}
+				if forcedClaudeClientAppRefused(ctx, decision, nil) {
+					return dispatchAbort{err: errors.Join(ErrSubscriptionClientAppRefused, leaseErr, lastSubscriptionErr)}
+				}
+				return dispatchAbort{err: errors.Join(leaseErr, lastSubscriptionErr)}
 			}
 			if !managedAttempt {
 				credentialCtx = attemptCtx
@@ -190,12 +198,13 @@ func (s *Service) dispatchPlanned(ctx context.Context, in failoverInputs, plan i
 				}
 				usage.AttemptedAccounts[lease.AccountID+"\x00"+decision.Model] = struct{}{}
 			}
-			stopRotationDeadline := func() {}
-			if creds := CredentialsFromContext(credentialCtx); creds != nil && creds.OAuth {
-				credentialCtx, stopRotationDeadline = withUncommittedRotationDeadline(credentialCtx, rotationCtx, in.buf)
+			if forcedClaudeClientAppRefused(ctx, decision, CredentialsFromContext(credentialCtx)) {
+				lease.Release()
+				return dispatchAbort{err: ErrSubscriptionClientAppRefused}
 			}
 			if creds := CredentialsFromContext(credentialCtx); paidFallbackForbidden(ctx) && (creds == nil || !creds.OAuth) {
-				return dispatchAbort{err: ErrCreditsExhaustedSubscriptionUnavailable}
+				lease.Release()
+				return dispatchAbort{err: subscriptionOnlyUnavailable(ctx)}
 			}
 			if creds := CredentialsFromContext(credentialCtx); creds != nil && creds.OAuth {
 				if state, _ := ctx.Value(ManagedSubscriptionUsageContextKey{}).(*ManagedSubscriptionUsage); state != nil {
@@ -203,9 +212,11 @@ func (s *Service) dispatchPlanned(ctx context.Context, in failoverInputs, plan i
 				}
 			}
 			attemptErr := in.attempt(credentialCtx, decision, guarded)
-			stopRotationDeadline()
-			// The attempt context is canceled now; health bookkeeping must still persist.
+			// Health bookkeeping must persist even if the caller has gone.
 			bookkeepingCtx := context.WithoutCancel(credentialCtx)
+			if creds := CredentialsFromContext(credentialCtx); !managedAttempt && creds != nil && creds.OAuth && attemptErr != nil {
+				s.recordDirectSubscriptionQuota(bookkeepingCtx, decision.Provider, decision.Model, creds, attemptErr)
+			}
 			if !committed(in.buf) {
 				s.recordSubscriptionModelRejection(bookkeepingCtx, decision.Provider, decision.Model, attemptErr)
 			}
@@ -228,12 +239,13 @@ func (s *Service) dispatchPlanned(ctx context.Context, in failoverInputs, plan i
 				}
 				return nil
 			}
-			// Budget expiry rotates only the attempt it canceled; terminal errors still stop.
-			canceledByRotationBudget := ctx.Err() == nil && rotationCtx.Err() != nil && (errors.Is(attemptErr, context.Canceled) || errors.Is(attemptErr, context.DeadlineExceeded))
-			rotate := managedAttempt && (s.recordManagedSubscriptionFailure(bookkeepingCtx, decision.Provider, decision.Model, lease, attemptErr) || providers.IsRetryable(attemptErr) || canceledByRotationBudget)
+			if ctx.Err() != nil {
+				return attemptErr
+			}
+			rotate := managedAttempt && (s.recordManagedSubscriptionFailure(bookkeepingCtx, decision.Provider, decision.Model, lease, attemptErr) || providers.IsRetryable(attemptErr))
 			if !managedAttempt && servedOnCodexSubscription(credentialCtx) && !committed(in.buf) {
 				_, quotaSpent := codexQuotaExhaustion(attemptErr)
-				if quotaSpent || codexOAuthCredentialRejected(attemptErr) || codexSubscriptionModelRejected(attemptErr) || providers.IsRetryable(attemptErr) || canceledByRotationBudget {
+				if quotaSpent || codexOAuthCredentialRejected(attemptErr) || codexSubscriptionModelRejected(attemptErr) || providers.IsRetryable(attemptErr) {
 					s.recordCodexQuotaExhaustion(bookkeepingCtx, http.Header{}, attemptErr)
 					attemptCtx = resolveAndInjectCredentials(withSuppressedCodexSubscription(attemptCtx), decision.Provider, decision.Model, http.Header{})
 					rotate = true
@@ -245,27 +257,9 @@ func (s *Service) dispatchPlanned(ctx context.Context, in failoverInputs, plan i
 				}
 				return attemptErr
 			}
-			if spent := s.clockNow().Sub(retryStart); spent >= rotationTimeout || rotationCtx.Err() != nil {
-				log.Warn("dispatchWithFallback: subscription account rotation budget spent, not retrying",
-					"model", decision.Model,
-					"provider", decision.Provider,
-					"spent_ms", spent.Milliseconds(),
-					"budget_ms", rotationTimeout.Milliseconds(),
-					"subscription_account_attempt", account+1,
-					"err", attemptErr)
-				poolProvider, subscriptionProvider := managedSubscriptionProviderFromUpstream(decision.Provider, decision.Model)
-				if subscriptionProvider && !subscriptionAttemptOnly(ctx) && !paidFallbackForbidden(ctx) && s.managedProviderFallbackAvailable(ctx, poolProvider) {
-					if in.buf != nil {
-						in.buf.Discard()
-					}
-					apiCtx := resolveAndInjectCredentials(withSuppressedClaudeSubscription(withSuppressedCodexSubscription(ctx)), decision.Provider, decision.Model, http.Header{})
-					apiErr := in.attempt(apiCtx, decision, guarded)
-					if apiErr == nil {
-						recordWinningCredentials(ctx, apiCtx)
-					}
-					return apiErr
-				}
-				return attemptErr
+			lastSubscriptionErr = attemptErr
+			if rotationBudget.remaining <= 0 {
+				return s.afterSubscriptionRotationBudget(ctx, decision, account+1, attemptErr)
 			}
 			if in.buf != nil {
 				in.buf.Discard()
@@ -331,38 +325,15 @@ func (s *Service) InspectInferencePlan(request policy.InspectionRequest) (policy
 	return plans.Inspect(request, s.inferenceDeployment)
 }
 
-type subscriptionDeadlineContext struct {
-	context.Context
-	budget context.Context
-}
-
-func (c subscriptionDeadlineContext) Deadline() (time.Time, bool) { return c.budget.Deadline() }
-func (c subscriptionDeadlineContext) Done() <-chan struct{}       { return c.budget.Done() }
-func (c subscriptionDeadlineContext) Err() error                  { return c.budget.Err() }
-func withSubscriptionRotationDeadline(ctx, budget context.Context) context.Context {
-	return subscriptionDeadlineContext{Context: ctx, budget: budget}
-}
-
-// withUncommittedRotationDeadline cancels a subscription attempt when the
-// rotation budget expires before provider output commits. The budget bounds
-// rotation, not the length of a committed stream.
-func withUncommittedRotationDeadline(ctx, budget context.Context, buf *preludeBuffer) (context.Context, func()) {
-	attemptCtx, cancel := context.WithCancelCause(ctx)
-	var attemptGeneration uint64
-	if buf != nil {
-		attemptGeneration = buf.currentAttemptGeneration()
+func (s *Service) afterSubscriptionRotationBudget(ctx context.Context, decision router.Decision, subscriptionAttempts int, rotationErr error) error {
+	observability.FromContext(ctx).Warn("Subscription admission budget spent; refusing unproven paid recovery", "model", decision.Model, "provider", decision.Provider, "budget_ms", subscriptionRotationBudget.Milliseconds(), "subscription_account_attempt", subscriptionAttempts, "err", rotationErr)
+	if forcedClaudeClientAppRefused(ctx, decision, nil) {
+		return errors.Join(ErrSubscriptionClientAppRefused, rotationErr)
 	}
-	stop := context.AfterFunc(budget, func() {
-		if buf == nil {
-			cancel(budget.Err())
-			return
-		}
-		buf.abortIfUncommitted(attemptGeneration, func() { cancel(budget.Err()) })
-	})
-	return attemptCtx, func() {
-		stop()
-		cancel(nil)
+	if errors.Is(rotationErr, ErrSubscriptionPoolUnavailable) {
+		return rotationErr
 	}
+	return errors.Join(ErrSubscriptionPoolExhausted, rotationErr)
 }
 
 func recordWinningCredentials(ctx, credentialCtx context.Context) {

@@ -756,6 +756,7 @@ func rewriteMessageBlocks(
 	}
 
 	anyChanged := false
+	droppedMessage := false
 	var msgRaws []string
 	var walkErr error
 
@@ -804,6 +805,7 @@ func rewriteMessageBlocks(
 		if len(kept) == 0 {
 			// Every block in this message was dropped; drop the message itself
 			// rather than emit an empty content array.
+			droppedMessage = true
 			return true
 		}
 
@@ -822,8 +824,32 @@ func rewriteMessageBlocks(
 	if !anyChanged {
 		return body, nil
 	}
+	if droppedMessage {
+		msgRaws = keepSystemMessagesBeforeAssistant(msgRaws)
+	}
 
 	return sjson.SetRawBytes(body, "messages", []byte("["+strings.Join(msgRaws, ",")+"]"))
+}
+
+// keepSystemMessagesBeforeAssistant moves each run of role:"system" messages
+// that no longer directly precedes an assistant turn to just before the next
+// one, or to the end. Anthropic 400s on a system message followed by a user
+// message, which a dropped assistant turn can leave behind.
+func keepSystemMessagesBeforeAssistant(msgRaws []string) []string {
+	out := make([]string, 0, len(msgRaws))
+	var pending []string
+	for _, raw := range msgRaws {
+		switch gjson.Get(raw, "role").String() {
+		case "system":
+			pending = append(pending, raw)
+			continue
+		case "assistant":
+			out = append(out, pending...)
+			pending = pending[:0]
+		}
+		out = append(out, raw)
+	}
+	return append(out, pending...)
 }
 
 // stripThinkingBlocksBytes removes thinking/redacted_thinking blocks from
@@ -1313,6 +1339,9 @@ func resolveAnthropicOverrides(body []byte, opts EmitOptions) EmitOverrides {
 		StripThoughtSignature:        true,
 		SanitizeAnthropicToolSchemas: true,
 	}
+	if opts.Capabilities.Supports(router.CapTemperatureUnsupported) && gjson.GetBytes(body, "temperature").Exists() {
+		ov.DeleteKeys = append(ov.DeleteKeys, "temperature")
+	}
 
 	// User-forced effort wins over inbound heuristic; no-op on non-adaptive targets.
 	if forced := resolveForceEffort(opts); forced != "" && opts.Capabilities.Supports(router.CapAdaptiveThinking) {
@@ -1340,6 +1369,9 @@ func resolveAnthropicOverrides(body []byte, opts EmitOptions) EmitOverrides {
 		case "disabled":
 			if opts.Capabilities.Supports(router.CapExtendedThinking) {
 				// Legacy extended-thinking models accept thinking.type=disabled.
+			} else if opts.Capabilities.Supports(router.CapAdaptiveThinking) &&
+				!opts.Capabilities.Reasoning().AlwaysOn {
+				// Adaptive models that are not always-on (claude-haiku-5-5) accept it too.
 			} else if opts.Capabilities.Supports(router.CapAdaptiveThinking) {
 				// Adaptive models are always-on and 400 on thinking.type=disabled
 				// (e.g. claude-fable-5); map the "no thinking" intent to the
@@ -1420,6 +1452,7 @@ func resolvePassthroughOverrides(body []byte) (EmitOverrides, bool) {
 
 var modelMaxOutputTokens = map[string]int{
 	catalog.ModelIDClaudeHaiku45.String(): 64000,
+	"claude-haiku-5-5":                    128000,
 	"gpt-4.1":                             32768, "gpt-4.1-mini": 32768, "gpt-4.1-nano": 32768,
 	"gpt-4o": 16384, "gpt-4o-mini": 16384,
 	"gpt-4-turbo": 4096, "gpt-4": 8192,

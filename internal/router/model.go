@@ -23,6 +23,12 @@ const (
 	// CapAutoToolChoiceOnly marks models that 400 on a forced tool_choice
 	// ({"type":"any"} / {"type":"tool"}); emit downgrades those to auto.
 	CapAutoToolChoiceOnly ModelCapability = "auto_tool_choice_only"
+	// CapTemperatureUnsupported marks Anthropic models that reject the
+	// temperature parameter even though they accept other sampling controls.
+	CapTemperatureUnsupported ModelCapability = "temperature_unsupported"
+	// CapAssistantPrefillUnsupported marks models that 400 when the
+	// conversation ends on an assistant message.
+	CapAssistantPrefillUnsupported ModelCapability = "assistant_prefill_unsupported"
 )
 
 // ModelSpec describes what a model supports. Zero value is safe: provider
@@ -164,9 +170,17 @@ var openAICompatBase = NewSpec()
 var registry = map[string]ModelSpec{
 	// claude-fable-5 has adaptive thinking always on (disabled is rejected);
 	// 1M context is native, so CapExtendedContext's beta header is a no-op.
-	"claude-fable-5":   anthropicAdaptiveFallback,
-	"claude-fable-5-1": anthropicAdaptiveFallbackAutoTools,
-	"claude-opus-5-5":  anthropicAdaptiveFallbackAutoTools,
+	"claude-fable-5": anthropicAdaptiveFallback,
+	"claude-fable-5-1": NewSpecWithReasoning(
+		ReasoningCapabilities{Levels: []string{"low", "medium", "high", "max", "xhigh"}, AlwaysOn: true},
+		CapAdaptiveThinking, CapExtendedContext, CapXhighEffort, CapServerSideFallback,
+		CapAutoToolChoiceOnly, CapTemperatureUnsupported,
+	),
+	"claude-opus-5-5": NewSpecWithReasoning(
+		ReasoningCapabilities{Levels: []string{"low", "medium", "high", "max", "xhigh"}, AlwaysOn: true},
+		CapAdaptiveThinking, CapExtendedContext, CapXhighEffort, CapServerSideFallback,
+		CapAutoToolChoiceOnly, CapAssistantPrefillUnsupported,
+	),
 	// Sonnet 5.5 accepts xhigh, unlike Sonnet 5.
 	"claude-sonnet-5-5": anthropicAdaptiveFallbackAutoTools,
 	"claude-opus-5":     anthropicAdaptiveFallback,
@@ -184,6 +198,16 @@ var registry = map[string]ModelSpec{
 	"claude-opus-4-5":  anthropicExtended,
 	"claude-opus-4-1":  anthropicExtended,
 	"claude-opus-4-0":  anthropicExtended,
+
+	// Haiku 5.5 is adaptive-only but, unlike Sonnet/Opus 5.5, accepts
+	// thinking.type=disabled and forced tool_choice.
+	"claude-haiku-5-5": NewSpecWithReasoning(
+		ReasoningCapabilities{Levels: []string{"low", "medium", "high", "max", "xhigh"}},
+		CapAdaptiveThinking,
+		CapExtendedContext,
+		CapXhighEffort,
+		CapServerSideFallback,
+	),
 
 	"claude-sonnet-4-5": NewSpec(),
 	"claude-sonnet-4-0": NewSpec(),

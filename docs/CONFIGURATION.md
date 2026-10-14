@@ -128,6 +128,13 @@ curl -sS -b jar -X POST https://<router>/admin/v1/provider-keys \
        "model_aliases":{"gpt-5":"openai-gpt-5"}}'
 ```
 
+A Cortex AI Gateway is configured the same way, with its endpoint
+(`https://<account-host>/api/v2/aigateways/<name>`) as the base URL. The router
+appends `/v1` like it does for the Cortex REST root. The gateway has no
+`/v1/responses` yet, so reasoning tool turns fall back to Chat Completions after
+the first probe, and native web search still runs on the account's
+`/api/v2/cortex/agent:run`.
+
 Both keys carry the same PAT; per model, the catalog's binding order decides
 which surface serves it, so Claude prefers the Anthropic one (it carries
 thinking blocks and `cache_control` natively) and falls back to the other. A
@@ -615,7 +622,7 @@ routing on, so a typo can't look like it took effect.
 
 | Header | Effect |
 | ------ | ------ |
-| `x-weave-force-model` | Pins the session to one model, exactly as `/force-model` does — same exact-match rule. Accepts a canonical catalog ID, a bare name, or an alias (`opus`, `gpt`, `qwen-max`, …) plus an optional `:level` effort suffix (`opus:high`). A value naming no catalog model is HTTP 400. |
+| `x-weave-force-model` | Pins the session to one model, exactly as `/force-model` does — same exact-match rule. Accepts a canonical catalog ID, a bare name, or an alias (`opus`, `gpt`, `qwen-max`, …) plus an optional `:level` effort suffix (`opus:high`). Separator spelling doesn't matter (`claude-opus-5.5`, `opus 5.5`, and `claude-opus-5-5` are one name), the `claude-` prefix and Claude Code's `[1m]` tag are optional, and the effort may follow a space or dash (`astra high`). A spelling that two models share is rejected rather than guessed. A value naming no catalog model is HTTP 400; for the typed command, a close typo (`opsu`) gets a "did you mean" hint but is never pinned. |
 | `x-weave-force-cluster` | Constrains serving to one of the policy sidecar's routing clusters, leaving the choice *within* it to the policy. |
 
 `x-weave-force-cluster` takes an opaque label — the router holds no list of

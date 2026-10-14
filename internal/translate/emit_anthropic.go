@@ -55,9 +55,24 @@ func (e *RequestEnvelope) PrepareAnthropic(in http.Header, opts EmitOptions) (pr
 	default:
 		return providers.PreparedRequest{}, fmt.Errorf("unsupported source format for Anthropic emit: %d", e.format)
 	}
-	body, err = sanitizeAnthropicToolNamesBytes(body)
+	body, toolAliases, err := sanitizeAnthropicToolNamesBytes(body)
 	if err != nil {
 		return providers.PreparedRequest{}, fmt.Errorf("sanitize anthropic tool names: %w", err)
+	}
+	// Validate explicit breakpoints before normalization can remove empty blocks.
+	body, err = applyAnthropicCachePolicy(body, false)
+	if err != nil {
+		return providers.PreparedRequest{}, err
+	}
+	body, err = normalizeAnthropicFinalAssistant(body)
+	if err != nil {
+		return providers.PreparedRequest{}, fmt.Errorf("normalize anthropic final assistant: %w", err)
+	}
+	if opts.Capabilities.Supports(router.CapAssistantPrefillUnsupported) {
+		body, err = dropAnthropicFinalAssistant(body)
+		if err != nil {
+			return providers.PreparedRequest{}, fmt.Errorf("drop anthropic final assistant: %w", err)
+		}
 	}
 	body, err = applyAnthropicCachePolicy(body, true)
 	if err != nil {
@@ -84,7 +99,7 @@ func (e *RequestEnvelope) PrepareAnthropic(in http.Header, opts EmitOptions) (pr
 	if maxOutputTokens := modelMaxOutputTokens[router.StripDateSuffix(opts.TargetModel)]; maxOutputTokens > 0 {
 		body = clampFieldBytes(body, "max_tokens", int64(maxOutputTokens))
 	}
-	return providers.PreparedRequest{Body: body, Headers: deriveAnthropicHeaders(in, opts, body)}, nil
+	return providers.PreparedRequest{Body: body, Headers: deriveAnthropicHeaders(in, opts, body), ResponseToolNames: toolAliases}, nil
 }
 
 // applyAnthropicSessionAffinity sets metadata.user_id to the session-affinity
@@ -248,6 +263,7 @@ func (e *RequestEnvelope) buildAnthropicFromOpenAI(opts EmitOptions) ([]byte, er
 	writeAnthropicSystemAndMessages(jw, e.body)
 	writeAnthropicMaxTokens(jw, e.body, opts.TargetModel, opts.Capabilities)
 	writeAnthropicStopSequences(jw, e.body)
+	writeAnthropicSamplingParams(jw, e.body, opts.Capabilities)
 
 	// tool_choice "none" suppresses tools entirely — Anthropic has no direct
 	// equivalent, so omitting tools is the only way to prevent tool calls.
@@ -257,8 +273,6 @@ func (e *RequestEnvelope) buildAnthropicFromOpenAI(opts EmitOptions) ([]byte, er
 		writeAnthropicTools(jw, e.body)
 		writeAnthropicToolChoice(jw, e.body, opts.Capabilities.Supports(router.CapAutoToolChoiceOnly))
 	}
-	writeAnthropicSharedParams(jw, e.body)
-
 	jw.EndObj()
 	return jw.Bytes(), nil
 }
@@ -735,39 +749,73 @@ func writeAnthropicTools(jw *jsonWriter, body []byte) {
 	jw.EndArr()
 }
 
+// hasAnthropicFunctionTools reports whether writeAnthropicTools emits at least
+// one tool; entries without a function member are skipped there.
+func hasAnthropicFunctionTools(body []byte) bool {
+	found := false
+	gjson.GetBytes(body, "tools").ForEach(func(_, tool gjson.Result) bool {
+		found = tool.Get("function").Exists()
+		return !found
+	})
+	return found
+}
+
 func writeAnthropicToolChoice(jw *jsonWriter, body []byte, autoOnly bool) {
 	kind, name := openAIToolChoice(body)
 	if autoOnly && (kind == toolChoiceRequired || kind == toolChoiceNamed) {
 		kind = toolChoiceAuto
 	}
+	// Anthropic carries the parallel limit on tool_choice, so a bare
+	// parallel_tool_calls:false still needs an explicit auto choice to ride on.
+	parallel := gjson.GetBytes(body, "parallel_tool_calls")
+	disableParallel := isJSONBool(parallel) && !parallel.Bool() && hasAnthropicFunctionTools(body)
+	if disableParallel && kind == toolChoiceAbsent {
+		kind = toolChoiceAuto
+	}
+	var choiceType string
 	switch kind {
 	case toolChoiceAuto:
-		jw.Key("tool_choice")
-		jw.Raw(`{"type":"auto"}`)
+		choiceType = "auto"
 	case toolChoiceRequired:
-		jw.Key("tool_choice")
-		jw.Raw(`{"type":"any"}`)
-	case toolChoiceNone:
-		// Handled upstream — tools and tool_choice both suppressed.
+		choiceType = "any"
 	case toolChoiceNamed:
-		tw := newJSONWriter()
-		tw.Obj()
-		tw.Key("type")
-		tw.Str("tool")
+		choiceType = "tool"
+	default:
+		// none is handled upstream (tools and tool_choice both suppressed);
+		// absent and unrecognized write nothing.
+		return
+	}
+	tw := newJSONWriter()
+	tw.Obj()
+	tw.Key("type")
+	tw.Str(choiceType)
+	if kind == toolChoiceNamed {
 		tw.Key("name")
 		tw.Str(name)
-		tw.EndObj()
-		jw.Key("tool_choice")
-		jw.Raw(string(tw.Bytes()))
 	}
+	if disableParallel {
+		tw.Key("disable_parallel_tool_use")
+		tw.Bool(true)
+	}
+	tw.EndObj()
+	jw.Key("tool_choice")
+	jw.Raw(string(tw.Bytes()))
 }
 
-func writeAnthropicSharedParams(jw *jsonWriter, body []byte) {
-	for _, key := range []string{"temperature", "top_p", "top_k"} {
-		if r := gjson.GetBytes(body, key); r.Exists() {
-			jw.Key(key)
-			jw.Raw(r.Raw)
+func writeAnthropicSamplingParams(jw *jsonWriter, body []byte, capabilities router.ModelSpec) {
+	if !capabilities.Supports(router.CapTemperatureUnsupported) {
+		if value := gjson.GetBytes(body, "temperature"); value.Exists() {
+			jw.Key("temperature")
+			jw.Raw(value.Raw)
 		}
+	}
+	if value := gjson.GetBytes(body, "top_p"); value.Exists() {
+		jw.Key("top_p")
+		jw.Raw(value.Raw)
+	}
+	if value := gjson.GetBytes(body, "top_k"); value.Exists() {
+		jw.Key("top_k")
+		jw.Raw(value.Raw)
 	}
 }
 
@@ -1005,9 +1053,10 @@ func sanitizeAnthropicToolSchemasBytes(body []byte) ([]byte, error) {
 // Anthropic permits longer historical tool_use names than declared tool names.
 const maxAnthropicHistoricalToolNameChars = 200
 
-var anthropicDeclaredToolNamePattern = regexp.MustCompile(`^[a-zA-Z0-9_-]{1,64}$`)
+// Anthropic rejects declared tool names over 128 characters.
+var anthropicDeclaredToolNamePattern = regexp.MustCompile(`^[a-zA-Z0-9_-]{1,128}$`)
 
-func sanitizeAnthropicToolNamesBytes(body []byte) ([]byte, error) {
+func sanitizeAnthropicToolNamesBytes(body []byte) ([]byte, map[string]string, error) {
 	tools := gjson.GetBytes(body, "tools").Array()
 	reservedNames := make(map[string]struct{}, len(tools))
 	for _, tool := range tools {
@@ -1058,7 +1107,7 @@ func sanitizeAnthropicToolNamesBytes(body []byte) ([]byte, error) {
 		},
 	)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	for index, tool := range gjson.GetBytes(out, "tools").Array() {
 		name := tool.Get("name").String()
@@ -1068,18 +1117,26 @@ func sanitizeAnthropicToolNamesBytes(body []byte) ([]byte, error) {
 		}
 		out, err = sjson.SetBytes(out, fmt.Sprintf("tools.%d.name", index), alias)
 		if err != nil {
-			return nil, fmt.Errorf("rewrite declared tool name: %w", err)
+			return nil, nil, fmt.Errorf("rewrite declared tool name: %w", err)
 		}
 	}
 	if choice.Get("type").String() == "tool" {
 		if alias, ok := aliases[choiceName]; ok {
 			out, err = sjson.SetBytes(out, "tool_choice.name", alias)
 			if err != nil {
-				return nil, fmt.Errorf("rewrite tool_choice name: %w", err)
+				return nil, nil, fmt.Errorf("rewrite tool_choice name: %w", err)
 			}
 		}
 	}
-	return out, nil
+	out, err = rewriteAnthropicToolReferences(out, aliases)
+	if err != nil {
+		return nil, nil, err
+	}
+	clientNames := make(map[string]string, len(aliases))
+	for name, alias := range aliases {
+		clientNames[alias] = name
+	}
+	return out, clientNames, nil
 }
 
 func sanitizedAnthropicToolName(name string) string {

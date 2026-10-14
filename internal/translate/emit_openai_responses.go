@@ -34,11 +34,14 @@ func (e *RequestEnvelope) PrepareOpenAIResponses(in http.Header, opts EmitOption
 	}
 	var body []byte
 	var stats providers.RequestMutationStats
+	var toolNames map[string]string
 	switch e.format {
 	case FormatAnthropic:
 		body, stats, err = e.buildResponsesFromAnthropic(opts)
+		toolNames = openAIToolNameAliases(e.body, anthropicRequestToolNamePaths)
 	case FormatOpenAI:
 		body, err = e.buildResponsesFromOpenAI(opts)
+		toolNames = openAIToolNameAliases(e.body, openAIRequestToolNamePaths)
 	default:
 		return providers.PreparedRequest{}, fmt.Errorf("PrepareOpenAIResponses: unsupported source format: %d", e.format)
 	}
@@ -53,7 +56,7 @@ func (e *RequestEnvelope) PrepareOpenAIResponses(in http.Header, opts EmitOption
 	if err != nil {
 		return providers.PreparedRequest{}, err
 	}
-	return providers.PreparedRequest{Body: body, Endpoint: providers.EndpointResponses, Stats: stats}, nil
+	return providers.PreparedRequest{Body: body, Endpoint: providers.EndpointResponses, Stats: stats, ResponseToolNames: toolNames}, nil
 }
 
 // applyResponsesSessionAffinity mirrors applySessionAffinity for the Responses
@@ -351,10 +354,18 @@ func (e *RequestEnvelope) buildResponsesFromAnthropic(opts EmitOptions) ([]byte,
 
 // writeResponsesInputFromAnthropic converts Anthropic messages into Responses
 // input items (text/image messages, reasoning, function_call, function_call_output).
+// Reasoning is replayed only for the turn in progress (after the latest typed
+// user prompt): earlier turns' reasoning plans already-answered prompts and
+// would otherwise dominate the context of a long session.
 func writeResponsesInputFromAnthropic(jw *jsonWriter, body []byte, scope string) {
+	messages := gjson.GetBytes(body, "messages")
+	replayFrom := latestUserPromptIndex(messages) + 1
 	jw.Key("input")
 	jw.Arr()
-	gjson.GetBytes(body, "messages").ForEach(func(_, msg gjson.Result) bool {
+	msgIdx := -1
+	messages.ForEach(func(_, msg gjson.Result) bool {
+		msgIdx++
+		replayReasoning := msgIdx >= replayFrom
 		role := msg.Get("role").String()
 		content := msg.Get("content")
 		if content.Type == gjson.String {
@@ -388,7 +399,7 @@ func writeResponsesInputFromAnthropic(jw *jsonWriter, body []byte, scope string)
 				}
 			case "thinking":
 				sig := block.Get("signature").String()
-				if _, emitted := emittedReasoningSignatures[sig]; emitted || !openAIReasoningSignatureReplayable(sig, scope) {
+				if _, emitted := emittedReasoningSignatures[sig]; emitted || !replayReasoning || !openAIReasoningSignatureReplayable(sig, scope) {
 					return true
 				}
 				flushContent()
@@ -399,7 +410,7 @@ func writeResponsesInputFromAnthropic(jw *jsonWriter, body []byte, scope string)
 				flushContent()
 				// Claude Code's round-trip drops the thinking block but keeps
 				// the tool_use id, so replay the reasoning item carried on it.
-				if sig != "" {
+				if sig != "" && replayReasoning {
 					if _, emitted := emittedReasoningSignatures[sig]; !emitted && emitResponsesReasoningItem(jw, sig, scope) {
 						emittedReasoningSignatures[sig] = struct{}{}
 					}
@@ -446,6 +457,38 @@ func writeResponsesInputFromAnthropic(jw *jsonWriter, body []byte, scope string)
 		return true
 	})
 	jw.EndArr()
+}
+
+// latestUserPromptIndex returns the index of the last user message carrying
+// input a person typed, or -1 when there is none. Tool results and Claude
+// Code's injected wrapper blocks (<system-reminder>, ...) are not typed input.
+func latestUserPromptIndex(messages gjson.Result) int {
+	latest, idx := -1, -1
+	messages.ForEach(func(_, msg gjson.Result) bool {
+		idx++
+		if msg.Get("role").String() == "user" && hasTypedUserInput(msg.Get("content")) {
+			latest = idx
+		}
+		return true
+	})
+	return latest
+}
+
+func hasTypedUserInput(content gjson.Result) bool {
+	if content.Type == gjson.String {
+		return !isOnlyKnownInjectedText(content.String())
+	}
+	typed := false
+	content.ForEach(func(_, block gjson.Result) bool {
+		switch block.Get("type").String() {
+		case "image":
+			typed = true
+		case "text":
+			typed = !isOnlyKnownInjectedText(block.Get("text").String())
+		}
+		return !typed
+	})
+	return typed
 }
 
 // emitResponsesReasoningItem replays encrypted reasoning only to the account

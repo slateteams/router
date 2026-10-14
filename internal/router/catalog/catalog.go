@@ -13,6 +13,9 @@ import (
 // ModelGPT6Luna is the canonical GPT-6 Luna model ID.
 const ModelGPT6Luna = "gpt-6-luna"
 
+// ModelMiMoV26Flash is the canonical Xiaomi MiMo-V2.6-Flash model ID.
+const ModelMiMoV26Flash = "xiaomi/mimo-v2.6-flash"
+
 // Tier is the coarse capability bucket. Higher is stronger; integer
 // ordering is load-bearing (planner compares freshTier > pinTier).
 type Tier int
@@ -177,12 +180,13 @@ const (
 type ModelID string
 
 const (
-	ModelIDClaudeHaiku45  ModelID = "claude-haiku-4-5"
-	ModelIDClaudeSonnet46 ModelID = "claude-sonnet-4-6"
-	ModelIDClaudeOpus47   ModelID = "claude-opus-4-7"
-	ModelIDGPT56Luna      ModelID = "gpt-5.6-luna"
-	ModelIDClaudeOpus48   ModelID = "claude-opus-4-8"
-	ModelIDGPT55          ModelID = "gpt-5.5"
+	ModelIDClaudeHaiku45      ModelID = "claude-haiku-4-5"
+	ModelIDClaudeSonnet46     ModelID = "claude-sonnet-4-6"
+	ModelIDClaudeOpus47       ModelID = "claude-opus-4-7"
+	ModelIDGPT56Luna          ModelID = "gpt-5.6-luna"
+	ModelIDClaudeOpus48       ModelID = "claude-opus-4-8"
+	ModelIDGPT55              ModelID = "gpt-5.5"
+	ModelIDGemini31ProPreview ModelID = "gemini-3.1-pro-preview"
 )
 
 func (id ModelID) String() string {
@@ -266,6 +270,20 @@ var Models = []Model{
 		{Provider: providers.ProviderAnthropic, Price: Pricing{InputUSDPer1M: 1.00, OutputUSDPer1M: 5.00, CacheReadMultiplier: 0.10}},
 		{Provider: providers.ProviderAnthropicGateway, Price: Pricing{InputUSDPer1M: 1.00, OutputUSDPer1M: 5.00}},
 		{Provider: providers.ProviderOpenAIGateway, Price: Pricing{InputUSDPer1M: 1.00, OutputUSDPer1M: 5.00}},
+	}},
+	// Haiku 5.5: priced by prompt length — $0.10/$0.50 up to 100K prompt
+	// tokens, $0.50/$2.50 above; cache reads 0.1x in both tiers. Native 1M
+	// context, no fast tier. Unlike Sonnet/Opus 5.5 it accepts disabled
+	// thinking and forced tool_choice.
+	{ID: "claude-haiku-5-5", Source: SourceClosedSource, Tier: TierLow, AdvisorRank: 4, ContextWindow: 1_000_000, Providers: []ProviderBinding{
+		{Provider: providers.ProviderAnthropic, Price: Pricing{
+			InputUSDPer1M: 0.10, OutputUSDPer1M: 0.50, CacheReadMultiplier: 0.10, USInferenceGeoMultiplier: USInferenceGeoMultiplier,
+			LongContext: &LongContextPricing{ThresholdTokens: 100_000, InputUSDPer1M: 0.50, OutputUSDPer1M: 2.50, CacheWriteMultiplier: 1.25, CacheReadMultiplier: 0.10},
+		}},
+		{Provider: providers.ProviderAnthropicGateway, Price: Pricing{
+			InputUSDPer1M: 0.10, OutputUSDPer1M: 0.50, CacheReadMultiplier: 0.10,
+			LongContext: &LongContextPricing{ThresholdTokens: 100_000, InputUSDPer1M: 0.50, OutputUSDPer1M: 2.50, CacheWriteMultiplier: 1.25, CacheReadMultiplier: 0.10},
+		}},
 	}},
 	{ID: "claude-sonnet-4-5", Source: SourceClosedSource, Tier: TierMid, ContextWindow: 200_000, Providers: []ProviderBinding{
 		{Provider: providers.ProviderAnthropic, Price: Pricing{InputUSDPer1M: 3.00, OutputUSDPer1M: 15.00, CacheReadMultiplier: 0.10}},
@@ -649,16 +667,17 @@ var Models = []Model{
 			Price: Pricing{InputUSDPer1M: 0.060, OutputUSDPer1M: 0.180, CacheReadMultiplier: 0.20}},
 		{Provider: providers.ProviderOpenRouter, Price: Pricing{InputUSDPer1M: 0.060, OutputUSDPer1M: 0.180, CacheReadMultiplier: 0.10}},
 	}},
-	// MiMo-V2.6 Flash: DeepInfra serves the native OpenAI-compatible endpoint
-	// and exposes Xiaomi's canonical model ID. The model is multimodal and has
-	// a 1M context window; its cache-read rate is 2% of input.
-	{ID: "xiaomi/mimo-v2.6-flash", Source: SourceOpenSource, Tier: TierMid, ContextWindow: 1_048_576, Providers: []ProviderBinding{
+	// Makora uses Xiaomi's official -RL checkpoint name; DeepInfra exposes the
+	// same Flash family without that suffix and remains the direct fallback.
+	{ID: ModelMiMoV26Flash, Source: SourceOpenSource, Tier: TierMid, ContextWindow: 1_048_576, Providers: []ProviderBinding{
+		{Provider: providers.ProviderMakora, UpstreamID: "XiaomiMiMo/MiMo-V2.6-Flash-RL",
+			Price: Pricing{InputUSDPer1M: 0.130, OutputUSDPer1M: 0.280, CacheReadMultiplier: 0.002 / 0.130}},
 		{Provider: providers.ProviderDeepInfra, UpstreamID: "XiaomiMiMo/MiMo-V2.6-Flash",
 			Price: Pricing{InputUSDPer1M: 0.140, OutputUSDPer1M: 0.280, CacheReadMultiplier: 0.02}},
 		{Provider: providers.ProviderOpenRouter, Price: Pricing{InputUSDPer1M: 0.140, OutputUSDPer1M: 0.280, CacheReadMultiplier: 0.10}},
 	}},
-	// MiMo-V2.6 Pro: same DeepInfra-first policy as Flash, with the higher
-	// capability tier reserved for maximum-complexity Max requests.
+	// MiMo-V2.6 Pro remains DeepInfra-first, with the higher capability tier
+	// reserved for maximum-complexity Max requests.
 	{ID: "xiaomi/mimo-v2.6-pro", Source: SourceOpenSource, Tier: TierHigh, ContextWindow: 1_048_576, ThinkTagReasoning: true, Providers: []ProviderBinding{
 		{Provider: providers.ProviderDeepInfra, UpstreamID: "XiaomiMiMo/MiMo-V2.6-Pro",
 			Price: Pricing{InputUSDPer1M: 0.435, OutputUSDPer1M: 0.870, CacheReadMultiplier: 0.00827586}},

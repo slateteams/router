@@ -58,58 +58,18 @@ func serveSlowSubscriptionTurn(t *testing.T, ctx context.Context, deploymentKeye
 }
 
 func TestSubscriptionOnlySlowFirstOutputDoesNotUsePaidCapacity(t *testing.T) {
+	t.Parallel()
 	ctx := billing.WithSubscriptionOnly(managedSubscriptionContext(auth.SubscriptionProviderCodex), billing.SubscriptionOnlyCreditsDepleted)
 	body, calls := serveSlowSubscriptionTurn(t, ctx, map[string]struct{}{providers.ProviderOpenAI: {}})
 	require.Contains(t, body, "slow subscription answer")
 	require.EqualValues(t, 1, calls, "subscription-only requests must not use the available paid key")
 }
 
-// State-model policy forbids paid attempts only inside the active set; a
-// funded request can still recover through its configured exhausted set.
-func TestSubscriptionRotationTimeoutPreservesFundedRecovery(t *testing.T) {
-	stateCtx := context.WithValue(context.Background(), InstallationSubscriptionModelsWhenActiveContextKey{}, []string{stateCodexModel})
-	stateCtx = context.WithValue(stateCtx, InstallationSubscriptionModelsWhenInactiveContextKey{}, []string{statePaidModel})
-	for _, tc := range []struct {
-		name string
-		ctx  context.Context
-		want time.Duration
-	}{
-		{"funded configured sets", stateCtx, 10 * time.Second},
-		{"linked first configured sets", billing.WithSubscriptionOnly(stateCtx, billing.SubscriptionOnlyLinkedFirst), 10 * time.Second},
-		{"depleted configured sets", billing.WithSubscriptionOnly(stateCtx, billing.SubscriptionOnlyCreditsDepleted), 120 * time.Second},
-		{"funded subscription attempt", context.WithValue(stateCtx, subscriptionOnlyAttemptKey{}, true), 10 * time.Second},
-		{"ordinary funded", context.Background(), 10 * time.Second},
-	} {
-		t.Run(tc.name, func(t *testing.T) { require.Equal(t, tc.want, (&Service{}).subscriptionRotationTimeout(tc.ctx)) })
-	}
-}
-
 func TestSelfHostedSubscriptionSlowFirstOutputWithoutBilling(t *testing.T) {
+	t.Parallel()
 	body, calls := serveSlowSubscriptionTurn(t, managedSubscriptionContext(auth.SubscriptionProviderCodex), map[string]struct{}{})
 	require.Contains(t, body, "slow subscription answer")
 	require.EqualValues(t, 1, calls, "self-hosted request must remain on the subscription")
-}
-
-func TestSubscriptionRotationTimeoutSelfHostedCredentials(t *testing.T) {
-	svc := &Service{deploymentKeyedProviders: map[string]struct{}{}}
-	ctx := context.Background()
-	require.Equal(t, 120*time.Second, svc.subscriptionRotationTimeout(ctx))
-	paidCtx := context.WithValue(ctx, CredentialsContextKey{}, &Credentials{APIKey: []byte("synthetic"), Source: credSourceClient})
-	require.Equal(t, 10*time.Second, svc.subscriptionRotationTimeout(paidCtx))
-	byokCtx := context.WithValue(ctx, ExternalAPIKeysContextKey{}, []*auth.ExternalAPIKey{{Provider: providers.ProviderOpenAI, Plaintext: []byte("synthetic")}})
-	require.Equal(t, 10*time.Second, svc.subscriptionRotationTimeout(byokCtx))
-	svc.deploymentKeyedProviders[providers.ProviderOpenAI] = struct{}{}
-	require.Equal(t, 10*time.Second, svc.subscriptionRotationTimeout(ctx))
-	svc.deploymentKeyedProviders = nil
-	require.Equal(t, 10*time.Second, svc.subscriptionRotationTimeout(ctx))
-}
-
-func TestLinkedFirstWithoutDeploymentKeysRetainsFundedRecovery(t *testing.T) {
-	svc := &Service{deploymentKeyedProviders: map[string]struct{}{}}
-	ctx := billing.WithSubscriptionOnly(context.Background(), billing.SubscriptionOnlyLinkedFirst)
-	require.Equal(t, 10*time.Second, svc.subscriptionRotationTimeout(ctx))
-	ctx = context.WithValue(ctx, CredentialsContextKey{}, codexSubscriptionCreds("synthetic-seat", "synthetic-account"))
-	require.Equal(t, 10*time.Second, svc.subscriptionRotationTimeout(ctx))
 }
 
 func TestSubscriptionOnlyRotatesAfterSlowRetryableFailure(t *testing.T) {
@@ -123,8 +83,7 @@ func TestSubscriptionOnlyRotatesAfterSlowRetryableFailure(t *testing.T) {
 	}}
 	svc := newServiceWithProviders(t, map[string]providers.Client{providers.ProviderAnthropic: client}).WithManagedSubscriptions(leaser)
 	startedAt := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
-	// The first attempt takes 11s: every clock read before it sees the start,
-	// every read after it is past the funded 10s cap but inside the 120s window.
+	// Inference takes longer than the admission budget without consuming it.
 	svc.now = func() time.Time {
 		if client.calls == 0 {
 			return startedAt

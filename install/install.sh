@@ -53,7 +53,7 @@
 #   npx @weave-os/router --local                          # local router on localhost:8080
 #   npx @weave-os/router --base-url http://localhost:8080 # self-hosted, custom port
 #   npx @weave-os/router --email you@example.com          # set the router identity email without prompting
-#   npx @weave-os/router --return-url https://example.com # open a URL after a verified install
+#   npx @weave-os/router --return-url https://example.com # open a URL after a verified install (or WEAVE_ROUTER_RETURN_URL)
 #   npx @weave-os/router --non-interactive                # require WEAVE_ROUTER_KEY env var (defaults target to claude)
 #   npx @weave-os/router --quiet                          # suppress banner, ping check, and trailing tips (return-url still verifies)
 #   npx @weave-os/router --rotate-key                     # ignore the installed key and prompt for a new one
@@ -454,6 +454,17 @@ claude_statusline_configured() {
   jq -e 'has("statusLine") and (.statusLine != null)' "$settings_path" >/dev/null 2>&1
 }
 
+# Git Bash rewrites $HOME's /c/... form to C:/... in arguments to native
+# executables such as jq.exe, so the stored command can use either form.
+statusline_commands_match() {
+  local first_mixed second_mixed
+  [ "$1" = "$2" ] && return 0
+  command -v cygpath >/dev/null 2>&1 || return 1
+  first_mixed="$(cygpath -m -- "$1" 2>/dev/null)" && [ -n "$first_mixed" ] || return 1
+  second_mixed="$(cygpath -m -- "$2" 2>/dev/null)" && [ -n "$second_mixed" ] || return 1
+  [ "$first_mixed" = "$second_mixed" ]
+}
+
 # claude_statusline_router_owned reports whether a settings entry points at the
 # router's statusline. Existing scripts prove ownership with the marker; when a
 # script is missing, the adjacent ownership marker proves that the router wrote
@@ -462,7 +473,7 @@ claude_statusline_router_owned() {
   local settings_path="$1" expected_command="$2" script_path="$3" ownership_marker_path="$4" configured_command
   [ -f "$settings_path" ] || return 1
   configured_command="$(jq -r '.statusLine.command // empty' "$settings_path" 2>/dev/null || true)"
-  [ "$configured_command" = "$expected_command" ] || return 1
+  statusline_commands_match "$configured_command" "$expected_command" || return 1
   if [ -f "$script_path" ]; then
     if grep -Fq "$CLAUDE_STATUSLINE_MARKER" "$script_path" 2>/dev/null; then
       return 0
@@ -1280,6 +1291,7 @@ write_pi_models_config() {
         { id: "claude-sonnet-5-5", name: "Claude Sonnet 5.5 (via Weave Router)", reasoning: true, input: ["text","image"], contextWindow: 1000000, maxTokens: 128000 },
         { id: "claude-opus-4-7",   name: "Claude Opus 4.7 (via Weave Router)",   reasoning: true, input: ["text","image"], contextWindow: 1000000, maxTokens: 64000 },
         { id: "claude-sonnet-4-6", name: "Claude Sonnet 4.6 (via Weave Router)", reasoning: true, input: ["text","image"], contextWindow: 1000000, maxTokens: 64000 },
+        { id: "claude-haiku-5-5",  name: "Claude Haiku 5.5 (via Weave Router)",  reasoning: true, input: ["text","image"], contextWindow: 1000000, maxTokens: 128000 },
         { id: "claude-haiku-4-5",  name: "Claude Haiku 4.5 (via Weave Router)",  reasoning: true, input: ["text","image"], contextWindow: 200000, maxTokens: 32000 },
         { id: "gpt-6-astra",       name: "GPT-6 Astra (via Weave Router)",       reasoning: true, input: ["text","image"], contextWindow: 1050000, maxTokens: 128000 },
         { id: "gpt-6-sol",         name: "GPT-6 Sol (via Weave Router)",         reasoning: true, input: ["text","image"], contextWindow: 1050000, maxTokens: 128000 },
@@ -1637,6 +1649,15 @@ fi
 if [ -n "$return_url" ] && [ "$mode" != "install" ]; then
   err "--return-url is supported only for install (or setup with one explicit target)."
   exit 2
+fi
+# The Windows PowerShell command passes the URL by env: npx.cmd re-parses
+# arguments through cmd.exe, which splits a URL at '&'.
+if [ -z "$return_url" ] && [ "$mode" = "install" ] && [ -n "${WEAVE_ROUTER_RETURN_URL:-}" ]; then
+  return_url="$WEAVE_ROUTER_RETURN_URL"
+  case "$return_url" in
+    http://*|https://*) ;;
+    *) err "WEAVE_ROUTER_RETURN_URL must be an http:// or https:// URL."; exit 2 ;;
+  esac
 fi
 
 # --lsp is a pi-extension feature, so it implies the pi target; combining it
@@ -2667,7 +2688,7 @@ prepare_claude_context_window() {
   model="${model:-sonnet}"
   case "$model" in
     *'[1m]') context_window=""; return 0 ;;
-    sonnet|opus|fable|claude-sonnet-4-6|claude-sonnet-5|claude-sonnet-5-5|claude-opus-4-6|claude-opus-4-7|claude-opus-4-8|claude-opus-5|claude-opus-5-5|claude-fable-5|claude-fable-5-1) ;;
+    sonnet|opus|fable|claude-sonnet-4-6|claude-sonnet-5|claude-sonnet-5-5|claude-haiku-5-5|claude-opus-4-6|claude-opus-4-7|claude-opus-4-8|claude-opus-5|claude-opus-5-5|claude-fable-5|claude-fable-5-1) ;;
     *) err "Cannot assert 1M support for '$model'. Select a supported Sonnet/Opus/Fable model first; leaving it unchanged."; return 1 ;;
   esac
   context_managed_model="${model}[1m]"
@@ -3055,7 +3076,7 @@ toggle_opencode() {
 # Public, unauthed catalog of everything the router can route to. Mounted in
 # both deployment modes, so it is the one listing that always works.
 MODELS_CATALOG_PATH="/v1/router/models"
-MODELS_DASHBOARD_URL="https://router.workweave.ai/dashboard/settings"
+MODELS_DASHBOARD_URL="https://router.workweave.ai/models"
 
 # Set by models_api on every call.
 models_http_status=""
@@ -3415,13 +3436,10 @@ open_url_in_browser() {
       open "$url" >/dev/null 2>&1
       ;;
     MINGW*|MSYS*|CYGWIN*)
-      # explorer.exe is a direct process launch; cmd.exe /c start would parse
-      # URL query separators such as '&' as shell syntax. Its exit status is
-      # not meaningful: an already-running shell commonly returns 1 after
-      # handing the URL off.
-      command -v explorer.exe >/dev/null 2>&1 || return 1
-      explorer.exe "$url" >/dev/null 2>&1 || true
-      return 0
+      # explorer.exe can open a File Explorer window instead of the browser,
+      # and cmd.exe /c start would parse URL query separators such as '&'.
+      command -v rundll32.exe >/dev/null 2>&1 || return 1
+      rundll32.exe url.dll,FileProtocolHandler "$url" >/dev/null 2>&1
       ;;
     *)
       command -v xdg-open >/dev/null 2>&1 || return 1
@@ -5902,6 +5920,7 @@ prices='{
     "claude-fable-5":                   0.01,
     "claude-fable-5-1":                 0.01,
     "claude-haiku-4-5":                 0.001,
+    "claude-haiku-5-5":                 0.0001,
     "claude-opus-4-0":                  0.015,
     "claude-opus-4-1":                  0.015,
     "claude-opus-4-5":                  0.005,
@@ -5981,7 +6000,7 @@ prices='{
     "qwen/qwen3.7-plus":                0.0004,
     "qwen/qwen3.8-max":                 0.002,
     "xiaomi/mimo-v2.5-pro":             0.001,
-    "xiaomi/mimo-v2.6-flash":           0.00014,
+    "xiaomi/mimo-v2.6-flash":           0.00013,
     "xiaomi/mimo-v2.6-pro":             0.000435,
     "z-ai/glm-5":                       0.001,
     "z-ai/glm-5.1":                     0.0014,
@@ -5993,6 +6012,7 @@ prices='{
     "claude-fable-5":                   0.05,
     "claude-fable-5-1":                 0.05,
     "claude-haiku-4-5":                 0.005,
+    "claude-haiku-5-5":                 0.0005,
     "claude-opus-4-0":                  0.075,
     "claude-opus-4-1":                  0.075,
     "claude-opus-4-5":                  0.025,
@@ -6084,6 +6104,7 @@ prices='{
     "claude-fable-5":                   0.1,
     "claude-fable-5-1":                 0.025,
     "claude-haiku-4-5":                 0.1,
+    "claude-haiku-5-5":                 0.1,
     "claude-opus-4-0":                  0.1,
     "claude-opus-4-1":                  0.1,
     "claude-opus-4-5":                  0.1,
@@ -6163,7 +6184,7 @@ prices='{
     "qwen/qwen3.7-plus":                0.2,
     "qwen/qwen3.8-max":                 0.125,
     "xiaomi/mimo-v2.5-pro":             0.1,
-    "xiaomi/mimo-v2.6-flash":           0.02,
+    "xiaomi/mimo-v2.6-flash":           0.015384615384615385,
     "xiaomi/mimo-v2.6-pro":             0.00827586,
     "z-ai/glm-5":                       0.2,
     "z-ai/glm-5.1":                     0.18571428571428572,
