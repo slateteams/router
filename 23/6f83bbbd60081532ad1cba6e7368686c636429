@@ -1,0 +1,16 @@
+internal/proxy/failed_attempt_regression_internal_test.go
+  h_1c75573cec5810 12,139-161
+internal/proxy/service.go
+  h_1c75573cec5810 4058-4059,4061-4064,4178-4180,5573
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "236f83bbbd60081532ad1cba6e7368686c636429",
+  "prompts": {},
+  "humans": {
+    "h_1c75573cec5810": {
+      "author": "Adam Creeger <adamcreeger@gmail.com>"
+    }
+  }
+}
