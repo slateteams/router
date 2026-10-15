@@ -1,0 +1,31 @@
+internal/proxy/failed_attempt_regression_internal_test.go
+  s_bb55a8968b286d::t_2a547fb86f6027 1-138
+internal/proxy/subscription_deadline_internal_test.go
+  s_bb55a8968b286d::t_90d038b5dbb7e4 152-153
+internal/proxy/timeout_stream_subscription_verification_test.go
+  s_a0ed24dbd49512::t_1fe57bd0543327 62,112
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "c565b0fa0316e3b55b7a10c2dd997611a9ba56ad",
+  "prompts": {},
+  "sessions": {
+    "s_a0ed24dbd49512": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1035c-932d-7443-a9e0-f305761b7c94",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "Adam Creeger <adamcreeger@gmail.com>"
+    },
+    "s_bb55a8968b286d": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "87abe24c-3356-4c45-aecc-71a8c4eeaec6",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "Adam Creeger <adamcreeger@gmail.com>"
+    }
+  }
+}
