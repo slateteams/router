@@ -1,0 +1,14 @@
+internal/proxy/dispatch_plan.go
+  h_1c75573cec5810 177-180,379
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "503236e6fdcf38dd2e9eda1396ac0f6afe36ae45",
+  "prompts": {},
+  "humans": {
+    "h_1c75573cec5810": {
+      "author": "Adam Creeger <adamcreeger@gmail.com>"
+    }
+  }
+}
