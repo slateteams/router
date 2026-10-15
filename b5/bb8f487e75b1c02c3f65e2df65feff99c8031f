@@ -1,0 +1,20 @@
+internal/proxy/dispatch_plan.go
+  h_1c75573cec5810 155,178,248,369-377
+internal/proxy/failed_attempt_regression_internal_test.go
+  h_1c75573cec5810 1-151
+internal/proxy/no_progress.go
+  h_1c75573cec5810 240-265
+internal/proxy/service.go
+  h_1c75573cec5810 3909-3910,3912-3919,4033-4035,5418-5420
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "b5bb8f487e75b1c02c3f65e2df65feff99c8031f",
+  "prompts": {},
+  "humans": {
+    "h_1c75573cec5810": {
+      "author": "Adam Creeger <adamcreeger@gmail.com>"
+    }
+  }
+}
