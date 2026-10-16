@@ -1,0 +1,16 @@
+internal/providers/openai/codex_extra_credits.go
+  h_1c75573cec5810 22-25,32,35-42,50,61,64,67
+internal/providers/openai/codex_quota.go
+  h_1c75573cec5810 159
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "b334679b261854853c321ece9437ec38b7976e7b",
+  "prompts": {},
+  "humans": {
+    "h_1c75573cec5810": {
+      "author": "Adam Creeger <adamcreeger@gmail.com>"
+    }
+  }
+}
