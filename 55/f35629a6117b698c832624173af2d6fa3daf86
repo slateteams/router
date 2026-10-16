@@ -1,0 +1,23 @@
+internal/providers/openai/codex_extra_credits_test.go
+  s_a0ed24dbd49512::t_9592b16eb6548d 121-123
+internal/proxy/codex_failover.go
+  s_a0ed24dbd49512::t_f8677a43a9afc7 66-68
+internal/proxy/codex_quota_rollover_test.go
+  s_a0ed24dbd49512::t_6a487242cfc92c 194,197,223,227
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "55f35629a6117b698c832624173af2d6fa3daf86",
+  "prompts": {},
+  "sessions": {
+    "s_a0ed24dbd49512": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1035c-932d-7443-a9e0-f305761b7c94",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "Adam Creeger <adamcreeger@gmail.com>"
+    }
+  }
+}
