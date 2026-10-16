@@ -1,0 +1,25 @@
+docs/SUBSCRIPTION_ROUTING.md
+  s_a0ed24dbd49512::t_cb51da424b1447 56-57,59-62
+internal/config/codex_credits_test.go
+  s_a0ed24dbd49512::t_468ddd3df35e20 13
+internal/config/config.go
+  s_a0ed24dbd49512::t_fa66e63cccd1f8 110-115
+internal/proxy/codex_quota_rollover_test.go
+  s_a0ed24dbd49512::t_afab985fdea71b 10,128,132,136,166-167,170-171,194,202,205,222-223,225-226
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "c20f9f83ef9569c20e6d741a2f78828bf3350bd5",
+  "prompts": {},
+  "sessions": {
+    "s_a0ed24dbd49512": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1035c-932d-7443-a9e0-f305761b7c94",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "Adam Creeger <adamcreeger@gmail.com>"
+    }
+  }
+}
