@@ -18,18 +18,23 @@ func codexIncludedLimitReached(err error) bool {
 
 // Credit metadata is read only after the operator opts in. Missing or invalid
 // quota data and provider spend controls never become permission to spend.
-func codexCreditsAvailable(raw, spend, reached json.RawMessage) bool {
+func codexCreditAdmissionReason(raw, spend, reached json.RawMessage) string {
 	var credits struct {
 		HasCredits *bool   `json:"has_credits"`
 		Unlimited  bool    `json:"unlimited"`
 		Balance    *string `json:"balance"`
 	}
 	if json.Unmarshal(raw, &credits) != nil {
-		return false
+		return "credits_invalid"
 	}
 	if !credits.Unlimited {
-		if credits.HasCredits == nil || !*credits.HasCredits || credits.Balance == nil || !positiveCreditBalance(*credits.Balance) {
-			return false
+		if credits.HasCredits == nil || !*credits.HasCredits {
+			return "credits_not_available"
+		}
+		// Subscription OAuth responses may explicitly report available credits
+		// while hiding the numeric balance.
+		if credits.Balance != nil && !positiveCreditBalance(*credits.Balance) {
+			return "credits_balance_not_positive"
 		}
 	}
 	if len(reached) > 0 && string(reached) != "null" {
@@ -37,7 +42,7 @@ func codexCreditsAvailable(raw, spend, reached json.RawMessage) bool {
 			Type string `json:"type"`
 		}
 		if json.Unmarshal(reached, &reason) != nil || reason.Type != "rate_limit_reached" {
-			return false
+			return "provider_limit_not_included"
 		}
 	}
 	if len(spend) > 0 && string(spend) != "null" {
@@ -48,13 +53,13 @@ func codexCreditsAvailable(raw, spend, reached json.RawMessage) bool {
 			} `json:"individual_limit"`
 		}
 		if json.Unmarshal(spend, &control) != nil || control.Reached == nil || *control.Reached {
-			return false
+			return "spend_control_reached_or_unknown"
 		}
 		if control.Individual != nil && (control.Individual.Remaining == nil || !positiveCreditBalance(*control.Individual.Remaining)) {
-			return false
+			return "individual_spend_limit_reached_or_unknown"
 		}
 	}
-	return true
+	return "available"
 }
 
 func positiveCreditBalance(raw string) bool {

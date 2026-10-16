@@ -13,8 +13,6 @@ import (
 	"weave-os/router/internal/observability"
 	"weave-os/router/internal/providers"
 	"weave-os/router/internal/requestcontext"
-
-	"github.com/tidwall/gjson"
 )
 
 type codexQuotaWindow struct {
@@ -69,7 +67,6 @@ func (c *Client) checkCodexIncludedQuota(ctx context.Context, model string) erro
 	}
 	var quotaStatus struct {
 		PlanType     string              `json:"plan_type"`
-		Credits      json.RawMessage     `json:"credits"`
 		RateLimit    *codexIncludedQuota `json:"rate_limit"`
 		SpendControl *struct {
 			Reached bool `json:"reached"`
@@ -91,16 +88,30 @@ func (c *Client) checkCodexIncludedQuota(ctx context.Context, model string) erro
 	planReported := quotaStatus.PlanType != ""
 	limitReached := (quotaStatus.SpendControl != nil && quotaStatus.SpendControl.Reached) ||
 		(quotaStatus.RateLimitReachedType != nil && codexReachedTypes[quotaStatus.RateLimitReachedType.Type])
-	allowCredits := c.allowCodexExtraCredits && quotaStatus.RateLimit != nil &&
-		(quotaStatus.RateLimit.Primary != nil || quotaStatus.RateLimit.Secondary != nil) &&
-		codexCreditsAvailable(quotaStatus.Credits, json.RawMessage(gjson.GetBytes(body, "spend_control").Raw), json.RawMessage(gjson.GetBytes(body, "rate_limit_reached_type").Raw))
+	creditReason := "disabled"
+	if c.allowCodexExtraCredits {
+		var metadata struct {
+			Credits      json.RawMessage `json:"credits"`
+			SpendControl json.RawMessage `json:"spend_control"`
+			ReachedType  json.RawMessage `json:"rate_limit_reached_type"`
+		}
+		if err := json.Unmarshal(body, &metadata); err != nil {
+			return codexQuotaUnavailable()
+		}
+		creditReason = codexCreditAdmissionReason(metadata.Credits, metadata.SpendControl, metadata.ReachedType)
+	}
+	allowCredits := creditReason == "available" && quotaStatus.RateLimit != nil &&
+		(quotaStatus.RateLimit.Primary != nil || quotaStatus.RateLimit.Secondary != nil)
 	// Windows go first so an exhausted window keeps its reset time.
 	if err = validateCodexIncludedQuota(quotaStatus.RateLimit, planReported || limitReached); err != nil && !(allowCredits && codexIncludedLimitReached(err)) {
+		if c.allowCodexExtraCredits {
+			log.Info("Codex quota admission denied", "extra_credits_enabled", true, "credit_reason", creditReason, "included_limit_reached", codexIncludedLimitReached(err), "primary_window_present", quotaStatus.RateLimit != nil && quotaStatus.RateLimit.Primary != nil, "secondary_window_present", quotaStatus.RateLimit != nil && quotaStatus.RateLimit.Secondary != nil)
+		}
 		logCodexQuotaDenial(log, err, "plan_type", quotaStatus.PlanType, "has_rate_limit", quotaStatus.RateLimit != nil)
 		return err
 	}
 	if limitReached && !allowCredits {
-		log.Info("Codex workspace limit preflight denied inference", "plan_type", quotaStatus.PlanType)
+		log.Info("Codex workspace limit preflight denied inference", "plan_type", quotaStatus.PlanType, "credit_reason", creditReason)
 		return codexQuotaExhausted(0)
 	}
 	for _, modelRateLimit := range quotaStatus.AdditionalRateLimits {
