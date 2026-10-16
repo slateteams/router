@@ -118,7 +118,9 @@ func TestCodexExtraCreditsPreservesProviderRejection(t *testing.T) {
 				inference++
 				return creditsResponse(status, `{"error":{"type":"insufficient_quota"}}`), nil
 			})}
-			require.Error(t, creditsProxy(client, codexCtx("synthetic-token", "synthetic-account")))
+			var upstream *providers.UpstreamErrorResponse
+			require.ErrorAs(t, creditsProxy(client, codexCtx("synthetic-token", "synthetic-account")), &upstream)
+			require.Equal(t, status, upstream.Status)
 			require.Equal(t, 1, inference, "provider refusal must not be bypassed")
 		})
 	}

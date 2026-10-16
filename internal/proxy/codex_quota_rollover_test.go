@@ -191,9 +191,10 @@ func TestCodexExtraCreditsRechecksPersonalIncludedObservation(t *testing.T) {
 func TestCodexExtraCreditsCallerLoginPrecedesAPIFallback(t *testing.T) {
 	for _, allowed := range []bool{false, true} {
 		t.Run(map[bool]string{false: "default_api_fallback", true: "opted_in_subscription_credits"}[allowed], func(t *testing.T) {
-			var subscriptionCalls, apiCalls atomic.Int32
+			var subscriptionCalls, apiCalls, quotaChecks atomic.Int32
 			upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				if r.URL.Path == "/wham/usage" {
+					quotaChecks.Add(1)
 					require.Equal(t, "Bearer "+codexTestToken, r.Header.Get("Authorization"))
 					_, _ = io.WriteString(w, `{"rate_limit":{"allowed":false,"limit_reached":true,"primary_window":{"used_percent":100}},"credits":{"has_credits":true,"balance":"20"}}`)
 					return
@@ -219,9 +220,11 @@ func TestCodexExtraCreditsCallerLoginPrecedesAPIFallback(t *testing.T) {
 			require.NoError(t, svc.ProxyOpenAIResponses(codexSubscriptionTestCtx(), []byte(body), rec, httptest.NewRequest(http.MethodPost, "/v1/responses", strings.NewReader(body))))
 			require.Contains(t, rec.Body.String(), "answer")
 			if allowed {
+				require.EqualValues(t, 1, quotaChecks.Load(), "caller login must freshly verify quota and credits")
 				require.EqualValues(t, 1, subscriptionCalls.Load())
 				require.Zero(t, apiCalls.Load())
 			} else {
+				require.Zero(t, quotaChecks.Load(), "cached included exhaustion skips the subscription without opt-in")
 				require.Zero(t, subscriptionCalls.Load())
 				require.EqualValues(t, 1, apiCalls.Load())
 			}
