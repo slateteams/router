@@ -182,11 +182,4 @@ func (s *Service) recordCodexQuotaExhaustion(ctx context.Context, headers http.H
 		"resets_at", resetAt)
 }
 
-func (s *Service) codexExtraCreditsAllowed() bool {
-	client, err := s.provider(providers.ProviderOpenAI)
-	if err != nil {
-		return false
-	}
-	policy, ok := client.(interface{ CodexExtraCreditsAllowed() bool })
-	return ok && policy.CodexExtraCreditsAllowed()
-}
+func (s *Service) codexExtraCreditsAllowed() bool { return s.codexExtraCredits }

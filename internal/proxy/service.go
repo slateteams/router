@@ -269,7 +269,8 @@ type Service struct {
 	// siblingFailover is the kill switch (ROUTER_SIBLING_FAILOVER, default on)
 	// for degrading to a same-cluster candidate when every binding of the
 	// routed model fails with a transient upstream fault.
-	siblingFailover bool
+	siblingFailover   bool
+	codexExtraCredits bool
 	// openAIResponsesBroad is the deployment default for
 	// ROUTER_OPENAI_RESPONSES_BROAD; see ResolveOpenAIResponsesBroad.
 	openAIResponsesBroad bool
@@ -2690,6 +2691,13 @@ func (s *Service) newTelemetryBuffer() *otel.Buffer {
 // that depleted its balance is 402'd before reaching the proxy.
 func (s *Service) WithBillingService(b *billing.Service) *Service {
 	s.billing = b
+	return s
+}
+
+// WithCodexExtraCredits records the self-hosted subscription-credit opt-in so
+// cached included-quota observations do not suppress credit-funded attempts.
+func (s *Service) WithCodexExtraCredits(enabled bool) *Service {
+	s.codexExtraCredits = enabled
 	return s
 }
 

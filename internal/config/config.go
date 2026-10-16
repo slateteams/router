@@ -110,7 +110,7 @@ func CodexExtraCreditsAllowed() (bool, error) {
 	raw := strings.TrimSpace(GetOr("ROUTER_CODEX_ALLOW_EXTRA_CREDITS", "false"))
 	allowed, err := strconv.ParseBool(raw)
 	if err != nil {
-		return false, fmt.Errorf("invalid ROUTER_CODEX_ALLOW_EXTRA_CREDITS (expected true or false)")
+		return false, fmt.Errorf("invalid ROUTER_CODEX_ALLOW_EXTRA_CREDITS %q (expected true or false)", raw)
 	}
 	return allowed, nil
 }

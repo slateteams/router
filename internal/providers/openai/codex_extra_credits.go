@@ -11,6 +11,11 @@ import (
 	"weave-os/router/internal/providers"
 )
 
+const (
+	codexCreditsDisabled  = "disabled"
+	codexCreditsAvailable = "available"
+)
+
 func codexIncludedLimitReached(err error) bool {
 	var upstream *providers.UpstreamErrorResponse
 	return errors.As(err, &upstream) && upstream.Status == http.StatusTooManyRequests
@@ -59,7 +64,7 @@ func codexCreditAdmissionReason(raw, spend, reached json.RawMessage) string {
 			return "individual_spend_limit_reached_or_unknown"
 		}
 	}
-	return "available"
+	return codexCreditsAvailable
 }
 
 func positiveCreditBalance(raw string) bool {

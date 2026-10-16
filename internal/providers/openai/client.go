@@ -137,9 +137,6 @@ func NewClientWithModelIDMap(apiKey, baseURL string, modelIDMap map[string]strin
 // Configure before serving requests; it does not enable OpenAI API fallback.
 func (c *Client) SetCodexExtraCreditsAllowed(allowed bool) { c.allowCodexExtraCredits = allowed }
 
-// CodexExtraCreditsAllowed reports the operator's subscription credit opt-in.
-func (c *Client) CodexExtraCreditsAllowed() bool { return c.allowCodexExtraCredits }
-
 // SetCodexBaseURL overrides the Codex subscription endpoint for local testing.
 func (c *Client) SetCodexBaseURL(baseURL string) {
 	if baseURL != "" {
