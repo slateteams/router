@@ -1,0 +1,35 @@
+docs/CONFIGURATION.md
+  s_e9601f642e1d47::t_20daa2bd3751ba 51
+docs/SUBSCRIPTION_ROUTING.md
+  s_e9601f642e1d47::t_89b817642c217a 44-54,68-69,112-130
+internal/providers/openai/codex_extra_credits_test.go
+  s_a0ed24dbd49512::t_3c91c8885451b0 1-112
+internal/providers/openai/codex_quota.go
+  s_a0ed24dbd49512::t_b934820bfbc0a6 143-145,155-158
+internal/proxy/codex_quota_rollover_test.go
+  s_a0ed24dbd49512::t_7ae90adf541999 120-226
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "bdc2c2ef866691401c0d33f1f0c6252bcf1962ff",
+  "prompts": {},
+  "sessions": {
+    "s_a0ed24dbd49512": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1035c-932d-7443-a9e0-f305761b7c94",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "Adam Creeger <adamcreeger@gmail.com>"
+    },
+    "s_e9601f642e1d47": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4a82cdf7-54e4-4302-8635-6aa617158a4a",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "Adam Creeger <adamcreeger@gmail.com>"
+    }
+  }
+}
