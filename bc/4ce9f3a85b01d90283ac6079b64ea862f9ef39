@@ -1,0 +1,16 @@
+internal/proxy/codex_quota_rollover_test.go
+  h_1c75573cec5810 36,80
+internal/proxy/dispatch_plan.go
+  h_1c75573cec5810 256
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "bc4ce9f3a85b01d90283ac6079b64ea862f9ef39",
+  "prompts": {},
+  "humans": {
+    "h_1c75573cec5810": {
+      "author": "Adam Creeger <adamcreeger@gmail.com>"
+    }
+  }
+}
