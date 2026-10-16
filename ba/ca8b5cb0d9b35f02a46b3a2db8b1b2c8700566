@@ -1,0 +1,33 @@
+cmd/router/main.go
+  s_a0ed24dbd49512::t_1d15eceb20b6af 159-165,1323
+internal/config/codex_credits_test.go
+  s_a0ed24dbd49512::t_93b290039063b2 1,6,16,18
+internal/config/config.go
+  s_a0ed24dbd49512::t_5cb481c743c3f8 113
+internal/providers/openai/codex_extra_credits.go
+  s_a0ed24dbd49512::t_b88ac72c74cd04 14-18,67
+internal/providers/openai/codex_quota.go
+  s_a0ed24dbd49512::t_540b05bbbc0758 91,103,107
+internal/proxy/codex_failover.go
+  s_a0ed24dbd49512::t_8033895d1c4f1f 185
+internal/proxy/codex_quota_rollover_test.go
+  s_a0ed24dbd49512::t_7ef601f2306b01 150,185,215
+internal/proxy/service.go
+  s_a0ed24dbd49512::t_47013a600292f7 272-273,2697-2703
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "baca8b5cb0d9b35f02a46b3a2db8b1b2c8700566",
+  "prompts": {},
+  "sessions": {
+    "s_a0ed24dbd49512": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1035c-932d-7443-a9e0-f305761b7c94",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "Adam Creeger <adamcreeger@gmail.com>"
+    }
+  }
+}
