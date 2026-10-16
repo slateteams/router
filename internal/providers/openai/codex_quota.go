@@ -13,6 +13,8 @@ import (
 	"weave-os/router/internal/observability"
 	"weave-os/router/internal/providers"
 	"weave-os/router/internal/requestcontext"
+
+	"github.com/tidwall/gjson"
 )
 
 type codexQuotaWindow struct {
@@ -67,6 +69,7 @@ func (c *Client) checkCodexIncludedQuota(ctx context.Context, model string) erro
 	}
 	var quotaStatus struct {
 		PlanType     string              `json:"plan_type"`
+		Credits      json.RawMessage     `json:"credits"`
 		RateLimit    *codexIncludedQuota `json:"rate_limit"`
 		SpendControl *struct {
 			Reached bool `json:"reached"`
@@ -88,12 +91,15 @@ func (c *Client) checkCodexIncludedQuota(ctx context.Context, model string) erro
 	planReported := quotaStatus.PlanType != ""
 	limitReached := (quotaStatus.SpendControl != nil && quotaStatus.SpendControl.Reached) ||
 		(quotaStatus.RateLimitReachedType != nil && codexReachedTypes[quotaStatus.RateLimitReachedType.Type])
+	allowCredits := c.allowCodexExtraCredits && quotaStatus.RateLimit != nil &&
+		(quotaStatus.RateLimit.Primary != nil || quotaStatus.RateLimit.Secondary != nil) &&
+		codexCreditsAvailable(quotaStatus.Credits, json.RawMessage(gjson.GetBytes(body, "spend_control").Raw), json.RawMessage(gjson.GetBytes(body, "rate_limit_reached_type").Raw))
 	// Windows go first so an exhausted window keeps its reset time.
-	if err = validateCodexIncludedQuota(quotaStatus.RateLimit, planReported || limitReached); err != nil {
+	if err = validateCodexIncludedQuota(quotaStatus.RateLimit, planReported || limitReached); err != nil && !(allowCredits && codexIncludedLimitReached(err)) {
 		logCodexQuotaDenial(log, err, "plan_type", quotaStatus.PlanType, "has_rate_limit", quotaStatus.RateLimit != nil)
 		return err
 	}
-	if limitReached {
+	if limitReached && !allowCredits {
 		log.Info("Codex workspace limit preflight denied inference", "plan_type", quotaStatus.PlanType)
 		return codexQuotaExhausted(0)
 	}

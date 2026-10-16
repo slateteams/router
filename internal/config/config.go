@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/url"
 	"os"
+	"strconv"
 	"strings"
 )
 
@@ -102,4 +103,14 @@ func PostgresDSN() string {
 		url.PathEscape(db),
 		sslMode,
 	)
+}
+
+// CodexExtraCreditsAllowed parses the self-hosted operator's spending opt-in.
+func CodexExtraCreditsAllowed() (bool, error) {
+	raw := strings.TrimSpace(GetOr("ROUTER_CODEX_ALLOW_EXTRA_CREDITS", "false"))
+	allowed, err := strconv.ParseBool(raw)
+	if err != nil {
+		return false, fmt.Errorf("invalid ROUTER_CODEX_ALLOW_EXTRA_CREDITS (expected true or false)")
+	}
+	return allowed, nil
 }

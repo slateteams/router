@@ -68,7 +68,9 @@ func (s *Service) openaiFallbackKeyAvailable(ctx context.Context) bool {
 // so the turn tries an eligible shared subscription or API fallback, and is
 // refused when neither is available.
 func (s *Service) codexSubscriptionExhausted(ctx context.Context, headers http.Header) bool {
-	if s.usageObserver == nil {
+	if s.usageObserver == nil || s.codexExtraCreditsAllowed() {
+		// Included usage observations cannot rule out fresh purchased credits.
+		// The provider still verifies quota and credit availability per attempt.
 		return false
 	}
 	codexTok, _ := presentSubscriptionTokens(ctx, headers)
@@ -178,4 +180,13 @@ func (s *Service) recordCodexQuotaExhaustion(ctx context.Context, headers http.H
 	})
 	observability.FromContext(ctx).Info("Codex subscription reported its plan spent; suppressing it until reset",
 		"resets_at", resetAt)
+}
+
+func (s *Service) codexExtraCreditsAllowed() bool {
+	client, err := s.provider(providers.ProviderOpenAI)
+	if err != nil {
+		return false
+	}
+	policy, ok := client.(interface{ CodexExtraCreditsAllowed() bool })
+	return ok && policy.CodexExtraCreditsAllowed()
 }

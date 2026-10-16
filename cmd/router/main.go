@@ -254,6 +254,13 @@ func main() {
 	}
 
 	{
+		allowCodexCredits, creditsErr := config.CodexExtraCreditsAllowed()
+		if creditsErr != nil {
+			panic(creditsErr)
+		}
+		if allowCodexCredits && deploymentMode != server.DeploymentModeSelfHosted {
+			panic("ROUTER_CODEX_ALLOW_EXTRA_CREDITS is supported only in selfhosted mode")
+		}
 		openaiBaseURL := config.GetOr("OPENAI_BASE_URL", openaiProvider.DefaultBaseURL)
 		openaiKey := ""
 		if !byokOnly {
@@ -266,6 +273,8 @@ func main() {
 			openaiBaseURL,
 			upstreamIDsForProvider(providers.ProviderOpenAI),
 		)
+		openaiClient.SetCodexExtraCreditsAllowed(allowCodexCredits)
+		logger.Info("Codex subscription credit policy configured", "allow_extra_credits", allowCodexCredits)
 		// Local tests can point the subscription branch at a deterministic native
 		// Responses mock without changing the production ChatGPT endpoint.
 		if deploymentMode == server.DeploymentModeSelfHosted {

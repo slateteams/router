@@ -305,7 +305,7 @@ func (s *Service) leaseManagedSubscription(ctx context.Context, provider, model 
 			owner.ExcludedAccountIDs = append(owner.ExcludedAccountIDs, lease.AccountID)
 			continue
 		}
-		if observed && snapshot.ExhaustedAsOf(s.clockNow()) {
+		if observed && snapshot.ExhaustedAsOf(s.clockNow()) && !(poolProvider == subscriptions.ProviderCodex && s.codexExtraCreditsAllowed()) {
 			resetAt := linkedSubscriptionResetAt(snapshot, s.clockNow())
 			recordManagedQuotaProof(ctx, lease.AccountID, resetAt)
 			if err := exhaustManagedSubscription(ctx, s.managedSubscriptions, owner, poolProvider, lease.AccountID, resetAt); err != nil {
