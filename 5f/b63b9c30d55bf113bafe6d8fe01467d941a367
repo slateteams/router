@@ -1,0 +1,33 @@
+internal/providers/openai/codex_quota.go
+  s_a0ed24dbd49512::t_c43766f1551736 28-37,39-49,51-104,119-120,122,131-133,139,225-233
+internal/providers/openai/codex_quota_resilience_test.go
+  s_a0ed24dbd49512::t_bfe967688a46b8 1-250
+internal/proxy/dispatch_plan.go
+  s_a0ed24dbd49512::t_b316caaeba2eb3 199-201
+internal/requestcontext/subscription_preflight.go
+  s_6e596e6800bfec::t_93bc2122e27512 1-20
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "5fb63b9c30d55bf113bafe6d8fe01467d941a367",
+  "prompts": {},
+  "sessions": {
+    "s_6e596e6800bfec": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "0b929892-d752-499e-b86d-412b301a44a6",
+        "model": "unknown"
+      },
+      "human_author": "Adam Creeger <adamcreeger@gmail.com>"
+    },
+    "s_a0ed24dbd49512": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1035c-932d-7443-a9e0-f305761b7c94",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "Adam Creeger <adamcreeger@gmail.com>"
+    }
+  }
+}
