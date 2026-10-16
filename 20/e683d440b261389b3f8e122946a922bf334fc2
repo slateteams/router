@@ -1,0 +1,20 @@
+docs/SUBSCRIPTION_ROUTING.md
+  h_1c75573cec5810 47-49
+internal/providers/openai/codex_extra_credits.go
+  h_1c75573cec5810 38-40
+internal/providers/openai/codex_extra_credits_test.go
+  h_1c75573cec5810 51-52,58-60
+internal/providers/openai/codex_quota.go
+  h_1c75573cec5810 159-163
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "20e683d440b261389b3f8e122946a922bf334fc2",
+  "prompts": {},
+  "humans": {
+    "h_1c75573cec5810": {
+      "author": "Adam Creeger <adamcreeger@gmail.com>"
+    }
+  }
+}
