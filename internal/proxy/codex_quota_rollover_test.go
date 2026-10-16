@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -124,15 +125,15 @@ func TestModelQuotaRejectionLeavesOtherModelsOnSubscription(t *testing.T) {
 func TestCodexExtraCreditsManagedAccountWithSpentObservation(t *testing.T) {
 	for _, allowed := range []bool{false, true} {
 		t.Run(map[bool]string{false: "included_only", true: "extra_credits"}[allowed], func(t *testing.T) {
-			inference, quotaChecks := 0, 0
+			var inference, quotaChecks atomic.Int32
 			upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				require.Equal(t, "Bearer synthetic-subscription", r.Header.Get("Authorization"))
 				if r.URL.Path == "/wham/usage" {
-					quotaChecks++
+					quotaChecks.Add(1)
 					_, _ = io.WriteString(w, `{"rate_limit":{"allowed":false,"limit_reached":true,"primary_window":{"used_percent":100}},"credits":{"has_credits":true,"balance":"20"}}`)
 					return
 				}
-				inference++
+				inference.Add(1)
 				w.Header().Set("Content-Type", "text/event-stream")
 				w.Header().Set("x-codex-primary-used-percent", "100")
 				_, _ = io.WriteString(w, "data: {\"type\":\"response.output_text.delta\",\"output_index\":0,\"delta\":\"answer\"}\n\ndata: {\"type\":\"response.completed\",\"response\":{\"id\":\"synthetic\",\"status\":\"completed\",\"output\":[]}}\n\n")
@@ -162,12 +163,12 @@ func TestCodexExtraCreditsManagedAccountWithSpentObservation(t *testing.T) {
 				}
 			}
 			if allowed {
-				require.Equal(t, 2, inference)
-				require.Equal(t, 2, quotaChecks, "fresh quota/credit verification for every turn")
+				require.EqualValues(t, 2, inference.Load())
+				require.EqualValues(t, 2, quotaChecks.Load(), "fresh quota/credit verification for every turn")
 				require.Empty(t, leaser.cooldownIDs)
 			} else {
-				require.Zero(t, inference)
-				require.Zero(t, quotaChecks, "cached included exhaustion suppresses the account without credit opt-in")
+				require.Zero(t, inference.Load())
+				require.Zero(t, quotaChecks.Load(), "cached included exhaustion suppresses the account without credit opt-in")
 			}
 		})
 	}
@@ -190,7 +191,7 @@ func TestCodexExtraCreditsRechecksPersonalIncludedObservation(t *testing.T) {
 func TestCodexExtraCreditsCallerLoginPrecedesAPIFallback(t *testing.T) {
 	for _, allowed := range []bool{false, true} {
 		t.Run(map[bool]string{false: "default_api_fallback", true: "opted_in_subscription_credits"}[allowed], func(t *testing.T) {
-			subscriptionCalls, apiCalls := 0, 0
+			var subscriptionCalls, apiCalls atomic.Int32
 			upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				if r.URL.Path == "/wham/usage" {
 					require.Equal(t, "Bearer "+codexTestToken, r.Header.Get("Authorization"))
@@ -198,10 +199,10 @@ func TestCodexExtraCreditsCallerLoginPrecedesAPIFallback(t *testing.T) {
 					return
 				}
 				if r.Header.Get("Authorization") == "Bearer "+codexTestToken {
-					subscriptionCalls++
+					subscriptionCalls.Add(1)
 				} else {
 					require.Equal(t, "Bearer synthetic-api-key", r.Header.Get("Authorization"))
-					apiCalls++
+					apiCalls.Add(1)
 				}
 				w.Header().Set("Content-Type", "text/event-stream")
 				_, _ = io.WriteString(w, "data: {\"type\":\"response.output_text.delta\",\"output_index\":0,\"delta\":\"answer\"}\n\ndata: {\"type\":\"response.completed\",\"response\":{\"id\":\"synthetic\",\"status\":\"completed\",\"output\":[]}}\n\n")
@@ -218,11 +219,11 @@ func TestCodexExtraCreditsCallerLoginPrecedesAPIFallback(t *testing.T) {
 			require.NoError(t, svc.ProxyOpenAIResponses(codexSubscriptionTestCtx(), []byte(body), rec, httptest.NewRequest(http.MethodPost, "/v1/responses", strings.NewReader(body))))
 			require.Contains(t, rec.Body.String(), "answer")
 			if allowed {
-				require.Equal(t, 1, subscriptionCalls)
-				require.Zero(t, apiCalls)
+				require.EqualValues(t, 1, subscriptionCalls.Load())
+				require.Zero(t, apiCalls.Load())
 			} else {
-				require.Zero(t, subscriptionCalls)
-				require.Equal(t, 1, apiCalls)
+				require.Zero(t, subscriptionCalls.Load())
+				require.EqualValues(t, 1, apiCalls.Load())
 			}
 		})
 	}

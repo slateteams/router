@@ -53,11 +53,13 @@ before each inference attempt. Missing, unavailable, malformed, or exhausted
 included quota skips that account even when purchased OpenAI credits are present,
 by default. A self-hosted operator can explicitly set
 `ROUTER_CODEX_ALLOW_EXTRA_CREDITS=true` to permit available subscription credits.
-The authenticated usage response must report `has_credits=true` (the numeric
+For attempts that require extra credits, the authenticated usage response must
+report `has_credits=true` (the numeric
 balance may be hidden), or unlimited credits. When a balance is reported,
-it must be a positive finite number. Unknown quota, unavailable credits,
-exhausted model-specific quota, workspace/member spending limits, and provider authentication or quota
-rejections still block the attempt. This setting affects both enrolled Codex
+it must be a positive finite number. Unknown quota, exhausted model-specific
+quota, workspace/member spending limits, and provider authentication or quota
+rejections still block the attempt. Unavailable credits block attempts that need
+extra credits; they do not block remaining included usage. This setting affects both enrolled Codex
 accounts and caller-presented Codex subscription logins on that self-hosted
 deployment. Available subscription credits are tried before any separately
 authorized OpenAI API-key fallback. It neither buys credits nor authorizes
