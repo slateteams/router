@@ -1,0 +1,33 @@
+internal/proxy/completed_empty_turn_internal_test.go
+  s_bb55a8968b286d::t_67752a2ef83686 1-51
+internal/translate/completed_empty_turn.go
+  s_bb55a8968b286d::t_c8ae798d2bf252 1-109
+internal/translate/completed_empty_turn_test.go
+  s_a0ed24dbd49512::t_4ab69e4688306a 1-126
+internal/translate/responses_to_anthropic_writer.go
+  s_a0ed24dbd49512::t_f2104f4e65b8b3 102,274-276,285-287,362,371-373,420-425,476-478,490-492,797,803-805
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "acac9f01cee269a98c2b92ae17b847c6cfd3637a",
+  "prompts": {},
+  "sessions": {
+    "s_a0ed24dbd49512": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1035c-932d-7443-a9e0-f305761b7c94",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "Adam Creeger <adamcreeger@gmail.com>"
+    },
+    "s_bb55a8968b286d": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "87abe24c-3356-4c45-aecc-71a8c4eeaec6",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "Adam Creeger <adamcreeger@gmail.com>"
+    }
+  }
+}
