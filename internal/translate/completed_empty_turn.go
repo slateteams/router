@@ -14,6 +14,9 @@ type completedEmptyTurn struct {
 }
 
 func (s *completedEmptyTurn) observe(data []byte) {
+	if s.disqualified {
+		return
+	}
 	if string(data) == "[DONE]" && s.terminals == 1 {
 		return
 	}
@@ -22,7 +25,7 @@ func (s *completedEmptyTurn) observe(data []byte) {
 		return
 	}
 	event := gjson.ParseBytes(data)
-	kind := event.Get("type").String()
+	kind := responsesEventType(event.Get("type").String())
 	if emptyTurnControlMetadata(kind) {
 		if nonNullResponseField(event, "error") || nonNullResponseField(event, "incomplete_details") {
 			s.disqualified = true
@@ -39,32 +42,32 @@ func (s *completedEmptyTurn) observe(data []byte) {
 	if s.terminals > 0 {
 		s.disqualified = true
 	}
-	switch event.Get("type").String() {
-	case "response.completed":
+	switch kind {
+	case responsesCompleted:
 		s.terminals++
 		r := event.Get("response")
 		output := r.Get("output")
 		if r.Get("status").String() != "completed" || nonNullResponseField(r, "error") || nonNullResponseField(r, "incomplete_details") || !output.IsArray() || len(output.Array()) != 1 || !emptyAssistantMessage(output.Array()[0], false) {
 			s.disqualified = true
 		}
-	case "response.created", "response.in_progress":
+	case responsesCreated, "response.in_progress":
 		r := event.Get("response")
 		if nonNullResponseField(r, "error") || nonNullResponseField(r, "incomplete_details") || !r.Get("output").IsArray() || len(r.Get("output").Array()) != 0 {
 			s.disqualified = true
 		}
-	case "response.output_item.added", "response.output_item.done":
-		if !emptyAssistantMessage(event.Get("item"), event.Get("type").String() == "response.output_item.added") {
+	case responsesOutputItemAdded, responsesOutputItemDone:
+		if !emptyAssistantMessage(event.Get("item"), kind == responsesOutputItemAdded) {
 			s.disqualified = true
 		}
-	case "response.content_part.added", "response.content_part.done":
+	case responsesContentPartAdded, responsesContentPartDone:
 		if !emptyOutputText(event.Get("part")) {
 			s.disqualified = true
 		}
-	case "response.output_text.delta":
+	case responsesOutputTextDelta:
 		if d := event.Get("delta"); d.Type != gjson.String || d.Str != "" {
 			s.disqualified = true
 		}
-	case "response.output_text.done":
+	case responsesOutputTextDone:
 		if d := event.Get("text"); d.Type != gjson.String || d.Str != "" {
 			s.disqualified = true
 		}
@@ -123,7 +126,7 @@ func bufferedCompletedEmptyTurn(body []byte) completedEmptyTurn {
 }
 
 // These subscription-stream events carry control metadata, never assistant output.
-func emptyTurnControlMetadata(kind string) bool {
+func emptyTurnControlMetadata(kind responsesEventType) bool {
 	switch kind {
 	case "codex.rate_limits", "codex.response.metadata", "response.metadata", "responsesapi.websocket_timing":
 		return true

@@ -356,12 +356,12 @@ func (t *ResponsesToAnthropicWriter) translateResponsesEvent(raw []byte) error {
 		}
 		return t.handleOutputItemAdded(data)
 	case "response.output_text.delta":
-		if d := gjson.GetBytes(data, "delta"); d.Type == gjson.String && d.Str != "" {
+		if hasNonEmptyDelta(data) {
 			t.markOutputProgress()
 		}
 		return t.handleTextDelta(data)
 	case responsesReasoningSummaryDelta, responsesReasoningTextDelta:
-		if delta := gjson.GetBytes(data, "delta"); delta.Type == gjson.String && delta.Str != "" {
+		if hasNonEmptyDelta(data) {
 			t.markReasoningProgress()
 		}
 		return t.handleReasoningDelta(data)
@@ -457,7 +457,7 @@ func (t *ResponsesToAnthropicWriter) handleOutputItemAdded(data []byte) error {
 }
 
 func (t *ResponsesToAnthropicWriter) handleTextDelta(data []byte) error {
-	if d := gjson.GetBytes(data, "delta"); d.Type != gjson.String || d.Str == "" {
+	if !hasNonEmptyDelta(data) {
 		return nil
 	}
 	idx, err := t.openBlock(int(gjson.GetBytes(data, "output_index").Int()), "text")
@@ -471,7 +471,7 @@ func (t *ResponsesToAnthropicWriter) handleTextDelta(data []byte) error {
 }
 
 func (t *ResponsesToAnthropicWriter) handleReasoningDelta(data []byte) error {
-	if d := gjson.GetBytes(data, "delta"); d.Type != gjson.String || d.Str == "" {
+	if !hasNonEmptyDelta(data) {
 		return nil
 	}
 	idx, err := t.openBlock(int(gjson.GetBytes(data, "output_index").Int()), "thinking")
