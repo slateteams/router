@@ -1,0 +1,21 @@
+internal/translate/completed_empty_turn.go
+  s_a0ed24dbd49512::t_8e33b15b06a5b6 29-32
+internal/translate/completed_empty_turn_test.go
+  s_a0ed24dbd49512::t_3606b2977d606a 17-22,89-90,110-114
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "26a389042db5fa55ab443f1101a58312abd2c1d0",
+  "prompts": {},
+  "sessions": {
+    "s_a0ed24dbd49512": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1035c-932d-7443-a9e0-f305761b7c94",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "Adam Creeger <adamcreeger@gmail.com>"
+    }
+  }
+}
