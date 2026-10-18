@@ -14,8 +14,12 @@ const completedEmptyMessage = `{"id":"resp_synthetic","status":"completed","erro
 
 func TestResponsesToAnthropicWriter_CompletedEmptyTurn(t *testing.T) {
 	for _, streaming := range []bool{false, true} {
-		for _, prefix := range []string{"", "data: {\"type\":\"response.output_text.delta\",\"output_index\":0,\"delta\":\"\"}\n\n", "data: {\"type\":\"response.created\",\"response\":{\"status\":\"in_progress\",\"output\":[]}}\n\ndata: {\"type\":\"response.output_item.added\",\"output_index\":0,\"item\":{\"id\":\"msg_synthetic\",\"type\":\"message\",\"role\":\"assistant\",\"status\":\"in_progress\",\"content\":[]}}\n\n"} {
-			t.Run(testMode(streaming)+map[bool]string{true: "_item_events", false: "_terminal_only"}[prefix != ""], func(t *testing.T) {
+		for name, prefix := range map[string]string{
+			"terminal_only": "",
+			"empty_delta":   "data: {\"type\":\"response.output_text.delta\",\"output_index\":0,\"delta\":\"\"}\n\n",
+			"item_events":   "data: {\"type\":\"response.created\",\"response\":{\"status\":\"in_progress\",\"output\":[]}}\n\ndata: {\"type\":\"response.output_item.added\",\"output_index\":0,\"item\":{\"id\":\"msg_synthetic\",\"type\":\"message\",\"role\":\"assistant\",\"status\":\"in_progress\",\"content\":[]}}\n\n",
+		} {
+			t.Run(testMode(streaming)+"_"+name, func(t *testing.T) {
 				rec := httptest.NewRecorder()
 				sink := &completedEmptyUsageSink{}
 				w := translate.NewResponsesToAnthropicWriter(rec, "synthetic-model", sink)
@@ -82,6 +86,8 @@ func TestResponsesToAnthropicWriter_RejectsUnprovenEmptyTurn(t *testing.T) {
 		"prior_unknown_item":             `{"type":"response.output_item.done","item":{"type":"unknown"}}`,
 		"prior_reasoning":                `{"type":"response.output_item.added","item":{"type":"reasoning","summary":[]}}`,
 		"prior_nameless_tool":            `{"type":"response.output_item.added","item":{"type":"function_call","name":""}}`,
+		"prior_created_event_error":      `{"type":"response.created","error":{"type":"server_error"},"response":{"output":[]}}`,
+		"prior_empty_delta_event_error":  `{"type":"response.output_text.delta","delta":"","error":{"type":"server_error"}}`,
 		"prior_error":                    `{"type":"error","error":{"type":"server_error","message":"failed"}}`,
 		"prior_malformed":                `{"type":`,
 		"prior_unknown_event":            `{"type":"response.future_semantic_output","delta":""}`,
@@ -100,6 +106,11 @@ func TestResponsesToAnthropicWriter_RejectsUnprovenEmptyTurn(t *testing.T) {
 		}
 		for name, r := range cases {
 			t.Run(testMode(streaming)+"_"+name, func(t *testing.T) { run(t, "data: {\"type\":\"response.completed\",\"response\":"+r+"}\n\n") })
+		}
+		for _, field := range []string{"error", "incomplete_details"} {
+			t.Run(testMode(streaming)+"_terminal_event_"+field, func(t *testing.T) {
+				run(t, "data: {\"type\":\"response.completed\",\""+field+"\":{\"reason\":\"failed\"},\"response\":"+completedEmptyMessage+"}\n\n")
+			})
 		}
 		for name, prefix := range prefixes {
 			t.Run(testMode(streaming)+"_"+name, func(t *testing.T) {

@@ -26,11 +26,11 @@ func (s *completedEmptyTurn) observe(data []byte) {
 	}
 	event := gjson.ParseBytes(data)
 	kind := responsesEventType(event.Get("type").String())
+	if nonNullResponseField(event, "error") || nonNullResponseField(event, "incomplete_details") {
+		s.disqualified = true
+		return
+	}
 	if emptyTurnControlMetadata(kind) {
-		if nonNullResponseField(event, "error") || nonNullResponseField(event, "incomplete_details") {
-			s.disqualified = true
-			return
-		}
 		for _, field := range []string{"output", "item", "part", "delta", "text", "content", "arguments", "refusal", "response"} {
 			if event.Get(field).Exists() {
 				s.disqualified = true
