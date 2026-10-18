@@ -1,0 +1,25 @@
+internal/proxy/stream_cut.go
+  s_9ec1b14ef5c319::t_a23dea0181a610 123,145-155,164-174
+internal/proxy/stream_cut_internal_test.go
+  s_9ec1b14ef5c319::t_5385b4c6e28b63 233-239,360
+internal/proxy/stream_progress.go
+  s_9ec1b14ef5c319::t_8d2c3b435e8242 10-21,43-48,64-69,83-89
+internal/proxy/stream_watchdog_progress_internal_test.go
+  s_9ec1b14ef5c319::t_b59aed17c3dd7a 1-77
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "8669afa575800820a2b5ba13cdc574543cdc5fa7",
+  "prompts": {},
+  "sessions": {
+    "s_9ec1b14ef5c319": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a15010-60ce-7591-a11f-fe577dfe3078",
+        "model": "unknown"
+      },
+      "human_author": "Adam Creeger <adamcreeger@gmail.com>"
+    }
+  }
+}
