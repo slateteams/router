@@ -1,0 +1,30 @@
+internal/providers/openai/responses_failure_diagnostics.go
+  s_0f89e76d9e60aa::t_336041f0d30748 23
+  s_17dcfedf1fefb3::t_bc40f32833980f 5,27,32,41-109
+internal/providers/openai/responses_failure_diagnostics_test.go
+  s_17dcfedf1fefb3::t_fb299dae7b1de1 75-114
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "acebf4f344c25d1fe9b86046e79ca3eefb9bb426",
+  "prompts": {},
+  "sessions": {
+    "s_0f89e76d9e60aa": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a150d7-7ac4-74c3-b8e3-329cf78dae44",
+        "model": "unknown"
+      },
+      "human_author": "Adam Creeger <adamcreeger@gmail.com>"
+    },
+    "s_17dcfedf1fefb3": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1511b-0a78-7ab1-b9bc-b841eff1e0c2",
+        "model": "unknown"
+      },
+      "human_author": "Adam Creeger <adamcreeger@gmail.com>"
+    }
+  }
+}
