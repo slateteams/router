@@ -1,0 +1,25 @@
+internal/translate/completed_empty_turn.go
+  s_a0ed24dbd49512::t_cb513b24f8ebaf 17-19,28,45-46,53,58-59,62,66,70,129
+internal/translate/completed_empty_turn_internal_test.go
+  s_a0ed24dbd49512::t_db70b347ec9d47 1-17
+internal/translate/responses_progress.go
+  s_a0ed24dbd49512::t_db79ba957999a6 60-64
+internal/translate/responses_to_anthropic_writer.go
+  s_a0ed24dbd49512::t_c440700f416130 359,364,460,474
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "0f5518016c14eadc31fa1fc0fdf328e02f76b9ef",
+  "prompts": {},
+  "sessions": {
+    "s_a0ed24dbd49512": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1035c-932d-7443-a9e0-f305761b7c94",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "Adam Creeger <adamcreeger@gmail.com>"
+    }
+  }
+}
