@@ -1,0 +1,35 @@
+internal/proxy/stream_argument_padding.go
+  s_bb55a8968b286d::t_d1e985ae3215d6 1-123
+internal/proxy/stream_cut.go
+  s_bb55a8968b286d::t_649ebb54cf9fbe 123,284
+internal/proxy/stream_argument_padding_internal_test.go
+  s_e3b3038696c302::t_30a2c856512445 1-168
+internal/proxy/stream_cut_internal_test.go
+  s_e3b3038696c302::t_a8bbdc416e5ca4 240-244,365
+internal/proxy/stream_progress.go
+  s_e3b3038696c302::t_52c64afdde12c9 10,30,66,79,93
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "17b7854694185ec75552043e1432f13afceea269",
+  "prompts": {},
+  "sessions": {
+    "s_bb55a8968b286d": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "87abe24c-3356-4c45-aecc-71a8c4eeaec6",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "Adam Creeger <adamcreeger@gmail.com>"
+    },
+    "s_e3b3038696c302": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a15053-3129-7b01-8210-249e2ace46ce",
+        "model": "unknown"
+      },
+      "human_author": "Adam Creeger <adamcreeger@gmail.com>"
+    }
+  }
+}
