@@ -146,7 +146,11 @@ func TestResponsesToAnthropicWriter_MetadataDoesNotInvalidateCompletedEmptyTurn(
 					require.NoError(t, err)
 					require.NoError(t, w.Finalize())
 					require.Equal(t, "end_turn", w.Summary().StopReason)
-					require.NotContains(t, rec.Body.String(), "event: content_block_start")
+					if streaming {
+						require.NotContains(t, rec.Body.String(), "event: content_block_start")
+					} else {
+						require.Equal(t, "[]", gjson.GetBytes(rec.Body.Bytes(), "content").Raw)
+					}
 				})
 			}
 		}
