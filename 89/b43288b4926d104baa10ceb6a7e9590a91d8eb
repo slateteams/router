@@ -1,0 +1,41 @@
+internal/proxy/stream_cut_internal_test.go
+  s_7eae2cf2ff94ce::t_23321076ce9bca 227-232,353
+internal/proxy/stream_cut.go
+  s_3946ffb450d5c5::t_2f090fb527b4c5 79,123,184,195,198,206,246,263
+internal/proxy/stream_progress.go
+  s_7c47f13fa444d1::t_48174dbaae34bf 1-82
+internal/proxy/stream_progress_internal_test.go
+  s_7c47f13fa444d1::t_babbb0eb70375e 1-111
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "89b43288b4926d104baa10ceb6a7e9590a91d8eb",
+  "prompts": {},
+  "sessions": {
+    "s_3946ffb450d5c5": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a14fca-c660-7e42-a032-0e5e21db5e6a",
+        "model": "unknown"
+      },
+      "human_author": "Adam Creeger <adamcreeger@gmail.com>"
+    },
+    "s_7c47f13fa444d1": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a14fca-c031-72e3-bc44-0bd2578c54ba",
+        "model": "unknown"
+      },
+      "human_author": "Adam Creeger <adamcreeger@gmail.com>"
+    },
+    "s_7eae2cf2ff94ce": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "e97980b7-a005-4cad-83bb-b14e28e1f7db",
+        "model": "unknown"
+      },
+      "human_author": "Adam Creeger <adamcreeger@gmail.com>"
+    }
+  }
+}
