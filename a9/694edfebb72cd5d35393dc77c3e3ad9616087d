@@ -1,0 +1,23 @@
+internal/providers/openai/client.go
+  s_e09ef8c5e3b4ad::t_41903c926ee1c9 286,499-501,530-533,538
+internal/providers/openai/stream_termination_diagnostics.go
+  s_e09ef8c5e3b4ad::t_04872595257490 1-84
+internal/providers/openai/stream_termination_diagnostics_internal_test.go
+  s_e09ef8c5e3b4ad::t_cd388ce1d67429 1-145
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "a9694edfebb72cd5d35393dc77c3e3ad9616087d",
+  "prompts": {},
+  "sessions": {
+    "s_e09ef8c5e3b4ad": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a16008-8bf6-7f12-87a8-2d3f5b57a9ab",
+        "model": "unknown"
+      },
+      "human_author": "Adam Creeger <adamcreeger@gmail.com>"
+    }
+  }
+}
