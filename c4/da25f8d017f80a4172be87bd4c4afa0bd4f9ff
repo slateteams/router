@@ -1,0 +1,41 @@
+internal/websearch/websearch.go
+  s_a0ed24dbd49512::t_88c561ccb1cd6c 54-56,60-62
+internal/proxy/codex_websearch_test.go
+  s_bb55a8968b286d::t_34da3df1673e2b 11,20,22-23,43-46,48,54-58,62,80-83,85-86,94,97-105,111
+internal/proxy/codex_websearch.go
+  s_bb55a8968b286d::t_6848b7e224be22 23-24,27-33,51,57,61,82,87,92,194-227
+internal/websearch/responses_test.go
+  s_a0ed24dbd49512::t_bb470bdca0b43b 93,115-122
+internal/proxy/turnloop.go
+  s_bb55a8968b286d::t_d59afc5cc1569a 807,861,863-877
+  2371ef74e43b6dc0 802-805
+  s_a0ed24dbd49512::t_0f12c792e48a06 806,859-860
+docs/CONFIGURATION.md
+  s_a0ed24dbd49512::t_f27969c7e0c336 123-125
+internal/websearch/responses.go
+  s_a0ed24dbd49512::t_71eb92fde9d6ab 41,66-67
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "c4da25f8d017f80a4172be87bd4c4afa0bd4f9ff",
+  "prompts": {},
+  "sessions": {
+    "s_a0ed24dbd49512": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1035c-932d-7443-a9e0-f305761b7c94",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "Adam Creeger <adamcreeger@gmail.com>"
+    },
+    "s_bb55a8968b286d": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "87abe24c-3356-4c45-aecc-71a8c4eeaec6",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "Adam Creeger <adamcreeger@gmail.com>"
+    }
+  }
+}
