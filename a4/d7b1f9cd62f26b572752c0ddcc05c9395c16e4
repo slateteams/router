@@ -1,0 +1,23 @@
+internal/proxy/codex_websearch.go
+  s_a0ed24dbd49512::t_41002a2bc9bcf2 129-131
+internal/websearch/responses.go
+  s_a0ed24dbd49512::t_e108f6bc73b969 14,31,33-34,37-41,43-44,129-138,143-147
+internal/websearch/responses_test.go
+  s_a0ed24dbd49512::t_9018da67e07d7f 30,93,108-114
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "a4d7b1f9cd62f26b572752c0ddcc05c9395c16e4",
+  "prompts": {},
+  "sessions": {
+    "s_a0ed24dbd49512": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1035c-932d-7443-a9e0-f305761b7c94",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "Adam Creeger <adamcreeger@gmail.com>"
+    }
+  }
+}
