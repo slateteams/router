@@ -1,0 +1,16 @@
+internal/websearch/responses.go
+  h_1c75573cec5810 41
+internal/websearch/responses_test.go
+  h_1c75573cec5810 93
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "4668eebccc3d1c66e353fd59b2fb684257b8f889",
+  "prompts": {},
+  "humans": {
+    "h_1c75573cec5810": {
+      "author": "Adam Creeger <adamcreeger@gmail.com>"
+    }
+  }
+}
