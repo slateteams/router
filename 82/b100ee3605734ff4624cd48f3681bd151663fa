@@ -1,0 +1,19 @@
+internal/proxy/codex_websearch.go
+  s_e9601f642e1d47::t_1438e70b869a97 28-31
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "82b100ee3605734ff4624cd48f3681bd151663fa",
+  "prompts": {},
+  "sessions": {
+    "s_e9601f642e1d47": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4a82cdf7-54e4-4302-8635-6aa617158a4a",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "Adam Creeger <adamcreeger@gmail.com>"
+    }
+  }
+}
