@@ -1,0 +1,21 @@
+internal/websearch/responses.go
+  s_879833ccad3f2f::t_855951af86d1ad 31-33,60
+internal/websearch/responses_test.go
+  s_879833ccad3f2f::t_4f756afe38c2ec 23
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "af2ca72481efc472c823ce563c2f54b013693a25",
+  "prompts": {},
+  "sessions": {
+    "s_879833ccad3f2f": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a179bf-d856-7cb0-9caa-f175c16ce02c",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Adam Creeger <adamcreeger@gmail.com>"
+    }
+  }
+}
