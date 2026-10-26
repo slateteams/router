@@ -3660,6 +3660,7 @@ func (s *Service) repinOffRefusingModel(ctx context.Context, sessionKey [session
 var anthropicPingFrame = []byte(sseEvent("ping", `{"type":"ping"}`))
 
 func (s *Service) ProxyMessages(ctx context.Context, body []byte, w http.ResponseWriter, r *http.Request) (returnErr error) {
+	ctx = context.WithValue(ctx, nativeSearchLoggerContextKey{}, observability.FromContext(ctx))
 	ctx = s.withSubscriptionFundingAuthorization(ctx, r.Header)
 	switch gjson.GetBytes(body, "thread.type").String() {
 	case translate.MessageThreadContinue:
@@ -3959,6 +3960,12 @@ func (s *Service) ProxyMessages(ctx context.Context, body []byte, w http.Respons
 	// and for a gateway-exclusive tenant every candidate rejects the tool.
 	if !preparingHandoff(ctx) && s.serveNativeWebSearch(ctx, body, feats.Model, env.Stream(), feats.Tokens, enabledProviders, r.Header, w) {
 		return nil
+	}
+
+	if !preparingHandoff(ctx) {
+		if handled, searchErr := s.serveCodexWebSearch(ctx, body, feats.Model, env.Stream(), enabledProviders, r, w); handled {
+			return searchErr
+		}
 	}
 
 	// Pre-filter models whose context window cannot fit this request.
