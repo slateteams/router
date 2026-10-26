@@ -1,0 +1,20 @@
+internal/proxy/turnloop.go
+  s_a0ed24dbd49512::t_d6ab9571718995 768,820-822,827
+  2371ef74e43b6dc0 763-767
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "fc17be59718840556165548df7e7c06ec1dfb7df",
+  "prompts": {},
+  "sessions": {
+    "s_a0ed24dbd49512": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1035c-932d-7443-a9e0-f305761b7c94",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "Adam Creeger <adamcreeger@gmail.com>"
+    }
+  }
+}
