@@ -120,7 +120,9 @@ uses ordinary Responses model selection; it does not pick a fixed search
 model or permit API-key fallback. Search uses low reasoning effort, a 90-second
 request deadline and a 2 MiB response bound. Because the Codex backend does
 not accept `max_tool_calls`, the bridge cancels its stream when native tool
-operations exceed `max_uses` (one by default). A successful search tool and
+operations exceed `max_uses` (one by default, at most ten). Requests above that
+server-side limit are rejected before dispatch. Isolated helpers never read or
+write conversation model pins or their usage history. A successful search tool and
 terminal response are required before results are returned. No extra search
 provider key, MCP server or client configuration is needed.
 

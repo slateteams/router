@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -16,7 +17,10 @@ import (
 	"weave-os/router/internal/billing"
 	"weave-os/router/internal/providers"
 	"weave-os/router/internal/proxy"
+	"weave-os/router/internal/requestcontext"
 	"weave-os/router/internal/router"
+	"weave-os/router/internal/router/sessionpin"
+	"weave-os/router/internal/translate"
 )
 
 const codexSearchModel = "gpt-6-luna"
@@ -36,17 +40,26 @@ func TestProxyMessages_CodexSubscriptionExecutesNativeWebSearch(t *testing.T) {
 				_, _ = io.WriteString(w, "data: "+`{"type":"response.output_item.done","output_index":1,"item":{"type":"message","role":"assistant","content":[{"type":"output_text","text":"The guide explains the feature.","annotations":[{"type":"url_citation","title":"Feature guide","url":"https://docs.example/guide"}]}]}}`+"\n\n")
 				_, _ = io.WriteString(w, "data: "+`{"type":"response.completed","response":{"id":"resp_search","status":"completed","model":"gpt-6-luna","output":[],"usage":{"input_tokens":120,"output_tokens":22,"input_tokens_details":{"cached_tokens":40}}}}`+"\n\n")
 			}}
-			svc := proxy.NewService(&fakeRouter{decision: router.Decision{Provider: providers.ProviderOpenAI, Model: codexSearchModel}}, map[string]providers.Client{providers.ProviderOpenAI: p, providers.ProviderAnthropic: &fakeProvider{proxyErr: errors.New("native Anthropic must not override an explicit Codex search")}}, nil, false, nil, nil, false, providers.ProviderOpenAI, codexSearchModel, nil)
+			store := newFakePinStore()
+			store.pin = sessionpin.Pin{Provider: providers.ProviderAnthropic, Model: "claude-opus-4-6", Reason: translate.ReasonUserForceModel, PinnedUntil: time.Now().Add(time.Hour)}
+			store.hasPin = true
+			svc := proxy.NewService(&fakeRouter{decision: router.Decision{Provider: providers.ProviderOpenAI, Model: codexSearchModel}}, map[string]providers.Client{providers.ProviderOpenAI: p, providers.ProviderAnthropic: &fakeProvider{proxyErr: errors.New("native Anthropic must not override an explicit Codex search")}}, nil, false, nil, store, false, providers.ProviderOpenAI, codexSearchModel, nil)
 			ctx := codexSearchContext()
+			ctx = context.WithValue(ctx, proxy.ClientIdentityContextKey{}, proxy.ClientIdentity{ClientApp: proxy.ClientAppClaudeCode, SessionID: "parent-session"})
 			ctx = billing.WithSubscriptionOnly(ctx, billing.SubscriptionOnlyCreditsDepleted)
 			body := []byte(fmt.Sprintf(`{"model":"%s","stream":%t,"max_tokens":1024,"system":"You are an assistant for performing a web search tool use","tools":[{"type":"web_search_20250305","name":"web_search","allowed_domains":["docs.example"]}],"messages":[{"role":"user","content":"Perform a web search for the query: feature guide"}]}`, codexSearchModel, stream))
 			rec := httptest.NewRecorder()
 			req := httptest.NewRequest(http.MethodPost, "/v1/messages", nil)
 			require.NoError(t, svc.ProxyMessages(ctx, body, rec, req))
+			store.mu.Lock()
+			assert.Zero(t, store.getCalls, "isolated helpers must not read parent or helper pins")
+			assert.Empty(t, store.upserts, "isolated helpers must not write pins")
+			assert.Empty(t, store.usages, "isolated helpers must not update session history")
+			store.mu.Unlock()
 			require.Len(t, p.proxyBodies, 1)
 			assert.Equal(t, providers.EndpointResponses, p.proxyEndpoints[0])
 			require.NotNil(t, p.proxyCreds[0])
-			assert.Equal(t, "codex_subscription", p.proxyCreds[0].Source)
+			assert.Equal(t, requestcontext.SourceCodexSubscription, p.proxyCreds[0].Source)
 			assert.Equal(t, "web_search", gjson.GetBytes(p.proxyBodies[0], "tools.0.type").String())
 			assert.Equal(t, "docs.example", gjson.GetBytes(p.proxyBodies[0], "tools.0.filters.allowed_domains.0").String())
 			assert.Equal(t, codexSearchModel, rec.Header().Get(proxy.HeaderRouterModel))
@@ -64,10 +77,13 @@ func TestProxyMessages_CodexSubscriptionExecutesNativeWebSearch(t *testing.T) {
 
 func TestProxyMessages_CodexSearchNeverFallsBackToAPIKeys(t *testing.T) {
 	p := &fakeProvider{proxyErr: &providers.UpstreamStatusError{Status: http.StatusTooManyRequests}}
-	svc := proxy.NewService(&fakeRouter{decision: router.Decision{Provider: providers.ProviderOpenAI, Model: codexSearchModel}}, map[string]providers.Client{providers.ProviderOpenAI: p}, nil, false, nil, nil, false, providers.ProviderOpenAI, codexSearchModel, nil).
+	store := newFakePinStore()
+	store.hasPin = true
+	store.pin = sessionpin.Pin{Provider: providers.ProviderAnthropic, Model: "claude-opus-4-6", Reason: translate.ReasonUserForceModel, PinnedUntil: time.Now().Add(time.Hour)}
+	svc := proxy.NewService(&fakeRouter{decision: router.Decision{Provider: providers.ProviderOpenAI, Model: codexSearchModel}}, map[string]providers.Client{providers.ProviderOpenAI: p}, nil, false, nil, store, false, providers.ProviderOpenAI, codexSearchModel, nil).
 		WithDeploymentKeyedProviders(map[string]struct{}{providers.ProviderOpenAI: {}})
-	ctx := codexSearchContext()
-	body := []byte(`{"model":"gpt-6-luna","max_tokens":1024,"system":"You are an assistant for performing a web search tool use","tools":[{"type":"web_search_20250305","name":"web_search"}],"messages":[{"role":"user","content":"Perform a web search for the query: a public query"}]}`)
+	ctx := context.WithValue(codexSearchContext(), proxy.ClientIdentityContextKey{}, proxy.ClientIdentity{ClientApp: proxy.ClientAppClaudeCode, SessionID: "parent-session"})
+	body := []byte(fmt.Sprintf(`{"model":"%s","max_tokens":1024,"system":"You are an assistant for performing a web search tool use","tools":[{"type":"web_search_20250305","name":"web_search"}],"messages":[{"role":"user","content":"Perform a web search for the query: a public query"}]}`, codexSearchModel))
 	rec := httptest.NewRecorder()
 	err := svc.ProxyMessages(ctx, body, rec, httptest.NewRequest(http.MethodPost, "/v1/messages", nil))
 	require.Error(t, err)
@@ -75,15 +91,24 @@ func TestProxyMessages_CodexSearchNeverFallsBackToAPIKeys(t *testing.T) {
 	for _, creds := range p.proxyCreds {
 		require.NotNil(t, creds)
 		assert.True(t, creds.OAuth)
-		assert.Equal(t, "codex_subscription", creds.Source)
+		assert.Equal(t, requestcontext.SourceCodexSubscription, creds.Source)
 	}
 	assert.NotContains(t, rec.Body.String(), "web_search_tool_result")
+	store.mu.Lock()
+	defer store.mu.Unlock()
+	assert.Zero(t, store.getCalls)
+	assert.Empty(t, store.upserts)
+	assert.Empty(t, store.usages)
+	assert.Zero(t, store.incrementCalls)
+	assert.Zero(t, store.resetCalls)
+	assert.Zero(t, store.overloadIncrementCalls)
+	assert.Zero(t, store.overloadResetCalls)
 }
 
 func TestProxyMessages_CodexSearchPreservesTypedRateLimit(t *testing.T) {
 	p := &fakeProvider{proxyErr: &providers.UpstreamErrorResponse{Status: http.StatusTooManyRequests, Headers: http.Header{"Retry-After": []string{"17"}}, Body: []byte(`{"error":{"type":"rate_limit_error","message":"search capacity is busy"}}`)}}
 	svc := proxy.NewService(&fakeRouter{decision: router.Decision{Provider: providers.ProviderOpenAI, Model: codexSearchModel}}, map[string]providers.Client{providers.ProviderOpenAI: p}, nil, false, nil, nil, false, providers.ProviderOpenAI, codexSearchModel, nil)
-	body := []byte(`{"model":"gpt-6-luna","max_tokens":1024,"system":"You are an assistant for performing a web search tool use","tools":[{"type":"web_search_20250305","name":"web_search"}],"messages":[{"role":"user","content":"Perform a web search for the query: a public query"}]}`)
+	body := []byte(fmt.Sprintf(`{"model":"%s","max_tokens":1024,"system":"You are an assistant for performing a web search tool use","tools":[{"type":"web_search_20250305","name":"web_search"}],"messages":[{"role":"user","content":"Perform a web search for the query: a public query"}]}`, codexSearchModel))
 	rec := httptest.NewRecorder()
 	err := svc.ProxyMessages(codexSearchContext(), body, rec, httptest.NewRequest(http.MethodPost, "/v1/messages", nil))
 	require.Error(t, err)

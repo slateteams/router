@@ -20,9 +20,17 @@ import (
 	"github.com/tidwall/gjson"
 )
 
+// nativeSearchLoggerContextKey carries the pre-bind logger so nested Responses
+// dispatch can bind session fields without duplicating log keys.
 type nativeSearchLoggerContextKey struct{}
 
-const nativeSearchResponseLimit = 2 * 1024 * 1024
+// codexWebSearchContextKey keeps isolated helpers out of conversation pin state.
+type codexWebSearchContextKey struct{}
+
+const (
+	nativeSearchResponseLimit = 2 * 1024 * 1024
+	nativeSearchTimeout       = 90 * time.Second
+)
 
 func (s *Service) serveCodexWebSearch(ctx context.Context, body []byte, model string, stream bool, enabled map[string]struct{}, r *http.Request, w http.ResponseWriter) (bool, error) {
 	if !websearch.IsClaudeCodeWebSearchHelper(body) || subscriptionAPIOnly(ctx) || subscriptionRoutingDisabledForRequest(ctx) || subscriptionFundingOutOfPlayForRequest(ctx) {
@@ -40,16 +48,17 @@ func (s *Service) serveCodexWebSearch(ctx context.Context, body []byte, model st
 	}
 	selected := model
 	if !requestcontext.CodexSubscriptionCanAttemptModel(selected) {
-		selected = "auto"
+		selected = CodexAutomaticModel
 	}
 	converted, err := websearch.ResponsesRequest(body, selected)
 	if err != nil {
 		return true, nativeSearchInvalidRequest(err)
 	}
-	callCtx, cancel := context.WithTimeout(ctx, 90*time.Second)
+	callCtx, cancel := context.WithTimeout(ctx, nativeSearchTimeout)
 	defer cancel()
 	// The search bridge never authorizes API-key fallback, even for funded callers.
 	callCtx = context.WithValue(callCtx, subscriptionOnlyAttemptKey{}, true)
+	callCtx = context.WithValue(callCtx, codexWebSearchContextKey{}, true)
 	if base, ok := ctx.Value(nativeSearchLoggerContextKey{}).(*slog.Logger); ok {
 		callCtx = observability.WithLogger(callCtx, base)
 	}
@@ -70,15 +79,17 @@ func (s *Service) serveCodexWebSearch(ctx context.Context, body []byte, model st
 		var upstream *providers.UpstreamErrorResponse
 		if errors.As(err, &upstream) {
 			copyNativeSearchHeaders(w, upstream.Headers)
+			return true, nativeSearchErrorResponse(upstream.Status, upstream.Body, err)
 		}
 		var status *providers.UpstreamStatusError
 		if errors.As(err, &status) {
 			copyNativeSearchHeaders(w, status.Headers)
+			return true, nativeSearchErrorResponse(status.Status, status.Body, err)
 		}
 		return true, err
 	}
 	if capture.status >= 400 {
-		return true, &providers.UpstreamErrorResponse{Status: capture.status, Body: capture.body.Bytes()}
+		return true, nativeSearchErrorResponse(capture.status, capture.body.Bytes(), nil)
 	}
 	result, err := websearch.ParseResponses(capture.body.Bytes(), body)
 	if err != nil {
@@ -179,4 +190,38 @@ func copyNativeSearchHeaders(w http.ResponseWriter, headers http.Header) {
 func nativeSearchInvalidRequest(err error) error {
 	encoded, _ := json.Marshal(map[string]any{"type": "error", "error": map[string]any{"type": "invalid_request_error", "message": err.Error()}})
 	return &providers.UpstreamErrorResponse{Status: http.StatusBadRequest, Body: encoded}
+}
+
+// nativeSearchErrorResponse normalizes buffered Responses failures for Messages
+// clients, retaining status and cause while diagnostics are copied separately.
+func nativeSearchErrorResponse(status int, body []byte, cause error) *providers.UpstreamErrorResponse {
+	kind := providers.ProviderErrorTypeAPI
+	switch status {
+	case http.StatusBadRequest, http.StatusUnprocessableEntity:
+		kind = providers.ProviderErrorTypeInvalidRequest
+	case http.StatusUnauthorized:
+		kind = providers.ProviderErrorTypeAuthentication
+	case http.StatusForbidden:
+		kind = providers.ProviderErrorTypePermission
+	case http.StatusNotFound:
+		kind = providers.ProviderErrorTypeNotFound
+	case http.StatusTooManyRequests:
+		kind = providers.ProviderErrorTypeRateLimit
+	case http.StatusRequestEntityTooLarge:
+		kind = "request_too_large"
+	case 529:
+		kind = providers.ProviderErrorTypeOverloaded
+	}
+	if original, known := providers.KnownProviderErrorType(gjson.GetBytes(body, "error.type").String()); known && original != providers.ProviderErrorTypeServiceUnavailable {
+		kind = original
+	}
+	message := "Upstream web search failed."
+	for _, path := range []string{"error.message", "message", "detail"} {
+		if value := gjson.GetBytes(body, path); value.Type == gjson.String && value.String() != "" {
+			message = value.String()
+			break
+		}
+	}
+	encoded, _ := json.Marshal(map[string]any{"type": "error", "error": map[string]any{"type": kind, "message": message}})
+	return &providers.UpstreamErrorResponse{Status: status, Body: encoded, Cause: cause}
 }

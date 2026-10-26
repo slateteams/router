@@ -51,9 +51,15 @@ type Executor interface {
 // ErrCallLimitExceeded reports an explicit web-search operation budget stop.
 var ErrCallLimitExceeded = errors.New("web search max_uses exceeded")
 
+// MaxNativeSearchOperations is the bridge's server-side native tool budget.
+const MaxNativeSearchOperations = 10
+
 // CallLimit bounds native tool operations for an isolated search helper.
 func CallLimit(body []byte) int {
 	if value := gjson.GetBytes(body, "tools.0.max_uses").Int(); value > 0 {
+		if value > MaxNativeSearchOperations {
+			return MaxNativeSearchOperations
+		}
 		return int(value)
 	}
 	return 1

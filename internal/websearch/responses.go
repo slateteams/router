@@ -38,7 +38,7 @@ func ResponsesRequest(body []byte, model string) ([]byte, error) {
 					return nil, errors.New("Codex web search requires hostname-only domain filters")
 				}
 				ascii, err := idna.Lookup.ToASCII(strings.TrimSuffix(raw, "."))
-				if err != nil || ascii == "" || strings.HasPrefix(ascii, ".") || strings.Contains(ascii, "..") {
+				if err != nil || ascii == "" || strings.HasPrefix(ascii, ".") || strings.Contains(ascii, "..") || strings.HasSuffix(ascii, ".") {
 					return nil, errors.New("invalid web search domain filter")
 				}
 				normalized = append(normalized, strings.ToLower(ascii))
@@ -63,8 +63,8 @@ func ResponsesRequest(body []byte, model string) ([]byte, error) {
 		"reasoning": map[string]any{"effort": "low"},
 	}
 	if limit := tool.Get("max_uses"); limit.Exists() {
-		if limit.Type != gjson.Number || limit.Int() <= 0 || float64(limit.Int()) != limit.Num {
-			return nil, errors.New("web search max_uses must be a positive integer")
+		if limit.Type != gjson.Number || limit.Int() <= 0 || float64(limit.Int()) != limit.Num || limit.Int() > MaxNativeSearchOperations {
+			return nil, errors.New("web search max_uses must be an integer between 1 and 10")
 		}
 
 	}

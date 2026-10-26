@@ -90,7 +90,7 @@ func TestParseResponsesCountsSearchActionsAndKeepsFailureDetail(t *testing.T) {
 
 func TestResponsesRequestRejectsUnsupportedRestrictionsBeforeSearch(t *testing.T) {
 	base := `{"model":"caller","system":"You are an assistant for performing a web search tool use","messages":[{"role":"user","content":"Perform a web search for the query: a public query"}],"tools":[{"type":"web_search_20250305","name":"web_search",FIELD}]}`
-	for _, field := range []string{`"allowed_domains":["example.com/docs"]`, `"blocked_domains":["example.com/private"]`, `"blocked_domains":["*.example.com"]`, `"allowed_domains":"example.com"`, `"max_uses":0`, `"blocked_domains":["example.com:443"]`, `"allowed_domains":[" example.com"]`, `"allowed_domains":["."]`, `"allowed_domains":[".example.com"]`, `"blocked_domains":["a..b"]`} {
+	for _, field := range []string{`"allowed_domains":["example.com/docs"]`, `"blocked_domains":["example.com/private"]`, `"blocked_domains":["*.example.com"]`, `"allowed_domains":"example.com"`, `"max_uses":0`, `"blocked_domains":["example.com:443"]`, `"allowed_domains":[" example.com"]`, `"allowed_domains":["."]`, `"allowed_domains":[".example.com"]`, `"blocked_domains":["a..b"]`, `"blocked_domains":["blocked.example.."]`, `"max_uses":11`} {
 		_, err := websearch.ResponsesRequest([]byte(strings.Replace(base, "FIELD", field, 1)), "selected")
 		require.Error(t, err)
 	}
@@ -111,4 +111,12 @@ func TestParseResponsesRejectsMalformedRestrictedURLs(t *testing.T) {
 	stream := "data: " + `{"type":"response.completed","response":{"status":"completed","output":[` + searchItem + "," + bad + "," + answerItem + `],"usage":` + usageJSON + "}}\n\n"
 	_, err := websearch.ParseResponses([]byte(stream), []byte(`{"tools":[{"allowed_domains":["docs.example"],"max_uses":2}]}`))
 	require.ErrorContains(t, err, "domain restrictions")
+}
+
+func TestNativeSearchOperationBudget(t *testing.T) {
+	base := `{"model":"caller","system":"You are an assistant for performing a web search tool use","messages":[{"role":"user","content":"Perform a web search for the query: a public query"}],"tools":[{"type":"web_search_20250305","name":"web_search","max_uses":10}]}`
+	_, err := websearch.ResponsesRequest([]byte(base), "selected")
+	require.NoError(t, err)
+	assert.Equal(t, 10, websearch.CallLimit([]byte(base)))
+	assert.Equal(t, 10, websearch.CallLimit([]byte(strings.Replace(base, `"max_uses":10`, `"max_uses":1000000`, 1))))
 }
