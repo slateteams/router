@@ -1,0 +1,55 @@
+docs/CONFIGURATION.md
+  s_a0ed24dbd49512::t_51bbf74bd823dd 107-126
+docs/INFERENCE_BOUNDARY.md
+  s_a0ed24dbd49512::t_f3689a2a17db53 34
+internal/proxy/codex_websearch.go
+  s_a0ed24dbd49512::t_8fb4f2be3849d6 1-182
+internal/proxy/codex_websearch_internal_test.go
+  s_a0ed24dbd49512::t_f4e472dccaf18c 1-54
+internal/proxy/codex_websearch_test.go
+  s_e9601f642e1d47::t_3cfad467d5274c 1-100
+internal/proxy/service.go
+  s_a0ed24dbd49512::t_f5f147a4a4dc24 3663,3965-3970
+internal/proxy/websearch.go
+  s_a0ed24dbd49512::t_3e039711675313 111-112,120
+internal/websearch/anthropic_response.go
+  s_a0ed24dbd49512::t_6e47384dfed3b8 58-61,89-92,104
+internal/websearch/responses.go
+  s_9fe80548521107::t_9eb203d6619882 1-233
+internal/websearch/responses_test.go
+  s_9fe80548521107::t_62adf9f15a9c81 1-114
+internal/websearch/websearch.go
+  s_a0ed24dbd49512::t_fc20b8726f8ec2 6-11,37-39,50-60
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "35940da1e93c155f7af95fea2ec6ff7dac8e4d54",
+  "prompts": {},
+  "sessions": {
+    "s_9fe80548521107": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "2a93d441-fd8b-47bd-9184-8c6d3091548e",
+        "model": "unknown"
+      },
+      "human_author": "Adam Creeger <adamcreeger@gmail.com>"
+    },
+    "s_a0ed24dbd49512": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1035c-932d-7443-a9e0-f305761b7c94",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "Adam Creeger <adamcreeger@gmail.com>"
+    },
+    "s_e9601f642e1d47": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4a82cdf7-54e4-4302-8635-6aa617158a4a",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "Adam Creeger <adamcreeger@gmail.com>"
+    }
+  }
+}
