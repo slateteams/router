@@ -1,0 +1,25 @@
+internal/proxy/codex_websearch.go
+  s_a0ed24dbd49512::t_ee46e1d6aadee0 6,16,19-20,44-45,56,58,61-63,76,100-108,129-160
+internal/proxy/codex_websearch_internal_test.go
+  s_a0ed24dbd49512::t_b7301f02257b6e 8-12,40-54
+internal/websearch/responses_test.go
+  s_a0ed24dbd49512::t_46810653577612 7-8,21-22,82,90-107
+internal/websearch/websearch.go
+  s_a0ed24dbd49512::t_579968c82271c1 6-11,50-60
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "103d03716607fe655272493db04136f2f68dc04f",
+  "prompts": {},
+  "sessions": {
+    "s_a0ed24dbd49512": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1035c-932d-7443-a9e0-f305761b7c94",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "Adam Creeger <adamcreeger@gmail.com>"
+    }
+  }
+}
