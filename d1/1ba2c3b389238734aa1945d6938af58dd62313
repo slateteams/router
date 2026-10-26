@@ -1,0 +1,20 @@
+internal/proxy/codex_websearch.go
+  h_1c75573cec5810 87,210-216
+internal/proxy/codex_websearch_internal_test.go
+  h_1c75573cec5810 5,12,14-19,22,25,75,85,88-110
+internal/proxy/codex_websearch_test.go
+  h_1c75573cec5810 80-83,85,97-105
+internal/proxy/turnloop.go
+  h_1c75573cec5810 824-829
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "d11ba2c3b389238734aa1945d6938af58dd62313",
+  "prompts": {},
+  "humans": {
+    "h_1c75573cec5810": {
+      "author": "Adam Creeger <adamcreeger@gmail.com>"
+    }
+  }
+}
