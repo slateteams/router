@@ -32,8 +32,17 @@ func codexSearchContext() context.Context {
 }
 
 func TestProxyMessages_CodexSubscriptionExecutesNativeWebSearch(t *testing.T) {
-	for _, stream := range []bool{false, true} {
-		t.Run(fmt.Sprint(stream), func(t *testing.T) {
+	for _, tc := range []struct {
+		stream bool
+		prompt string
+	}{
+		{false, "You are an assistant for performing a web search tool use"},
+		{true, "You are an assistant for performing a web search tool use"},
+		{false, "You run a web search for another Claude model, which is waiting on the result and can search again. Search once, then reply with a brief summary of the results."},
+		{true, "You run a web search for another Claude model, which is waiting on the result and can search again. Search once, then reply with a brief summary of the results."},
+	} {
+		stream := tc.stream
+		t.Run(fmt.Sprint(stream)+"/"+tc.prompt, func(t *testing.T) {
 			p := &fakeProvider{proxyResponse: func(w http.ResponseWriter) {
 				w.Header().Set("Content-Type", "text/event-stream")
 				_, _ = io.WriteString(w, "data: "+`{"type":"response.output_item.done","output_index":0,"item":{"type":"web_search_call","status":"completed","action":{"type":"search","sources":[{"type":"url","url":"https://docs.example/guide"}]}}}`+"\n\n")
@@ -47,7 +56,7 @@ func TestProxyMessages_CodexSubscriptionExecutesNativeWebSearch(t *testing.T) {
 			ctx := codexSearchContext()
 			ctx = context.WithValue(ctx, proxy.ClientIdentityContextKey{}, proxy.ClientIdentity{ClientApp: proxy.ClientAppClaudeCode, SessionID: "parent-session"})
 			ctx = billing.WithSubscriptionOnly(ctx, billing.SubscriptionOnlyCreditsDepleted)
-			body := []byte(fmt.Sprintf(`{"model":"%s","stream":%t,"max_tokens":1024,"system":"You are an assistant for performing a web search tool use","tools":[{"type":"web_search_20250305","name":"web_search","allowed_domains":["docs.example"]}],"messages":[{"role":"user","content":"Perform a web search for the query: feature guide"}]}`, codexSearchModel, stream))
+			body := []byte(fmt.Sprintf(`{"model":"%s","stream":%t,"max_tokens":1024,"system":%q,"tools":[{"type":"web_search_20250305","name":"web_search","allowed_domains":["docs.example"]}],"messages":[{"role":"user","content":"Perform a web search for the query: feature guide"}]}`, codexSearchModel, stream, tc.prompt))
 			rec := httptest.NewRecorder()
 			req := httptest.NewRequest(http.MethodPost, "/v1/messages", nil)
 			require.NoError(t, svc.ProxyMessages(ctx, body, rec, req))
