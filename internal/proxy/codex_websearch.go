@@ -65,6 +65,7 @@ func (s *Service) serveCodexWebSearch(ctx context.Context, body []byte, model st
 	req := r.Clone(callCtx)
 	req.URL.Path = "/v1/responses"
 	req.Header.Set(routingMarkerHeader, "off")
+	req.Header.Del(ForceModelHeader)
 	req.Body = http.NoBody
 	capture := &nativeSearchBuffer{header: make(http.Header), maxCalls: websearch.CallLimit(body), cancel: cancel, calls: make(map[string]struct{})}
 	err = s.ProxyOpenAIResponses(callCtx, converted, capture, req)

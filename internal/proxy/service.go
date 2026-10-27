@@ -3660,6 +3660,12 @@ func (s *Service) repinOffRefusingModel(ctx context.Context, sessionKey [session
 var anthropicPingFrame = []byte(sseEvent("ping", `{"type":"ping"}`))
 
 func (s *Service) ProxyMessages(ctx context.Context, body []byte, w http.ResponseWriter, r *http.Request) (returnErr error) {
+	// A machine search helper inherits conversation headers but must never
+	// apply a conversation-level force pin, even before bridge interception.
+	if websearch.IsClaudeCodeWebSearchHelper(body) {
+		r = r.Clone(ctx)
+		r.Header.Del(ForceModelHeader)
+	}
 	ctx = context.WithValue(ctx, nativeSearchLoggerContextKey{}, observability.FromContext(ctx))
 	ctx = s.withSubscriptionFundingAuthorization(ctx, r.Header)
 	switch gjson.GetBytes(body, "thread.type").String() {
