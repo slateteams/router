@@ -1,0 +1,18 @@
+internal/proxy/codex_websearch.go
+  h_1c75573cec5810 68
+internal/proxy/codex_websearch_test.go
+  h_1c75573cec5810 62,69
+internal/proxy/service.go
+  h_1c75573cec5810 3416-3421
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "5bf3af4f09423755465905f79ffc831223879cf4",
+  "prompts": {},
+  "humans": {
+    "h_1c75573cec5810": {
+      "author": "Adam Creeger <adamcreeger@gmail.com>"
+    }
+  }
+}
