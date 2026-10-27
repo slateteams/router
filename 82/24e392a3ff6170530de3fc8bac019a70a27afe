@@ -1,0 +1,18 @@
+internal/proxy/codex_websearch_test.go
+  h_1c75573cec5810 35-45,59
+internal/websearch/anthropic_request.go
+  h_1c75573cec5810 20-29,42,45
+internal/websearch/helper_compat_test.go
+  h_1c75573cec5810 1-35
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "8224e392a3ff6170530de3fc8bac019a70a27afe",
+  "prompts": {},
+  "humans": {
+    "h_1c75573cec5810": {
+      "author": "Adam Creeger <adamcreeger@gmail.com>"
+    }
+  }
+}
