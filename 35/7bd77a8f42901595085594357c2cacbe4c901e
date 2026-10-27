@@ -1,0 +1,21 @@
+internal/providers/openai/codex_quota.go
+  s_3755defbd0f231::t_97db9690034f52 108,118,126,138,152
+internal/providers/openai/codex_quota_diagnostics_internal_test.go
+  s_3755defbd0f231::t_231d3bc019c1f3 1-112
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "357bd77a8f42901595085594357c2cacbe4c901e",
+  "prompts": {},
+  "sessions": {
+    "s_3755defbd0f231": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a17e05-bdd3-7472-b3ca-6d7c90354320",
+        "model": "unknown"
+      },
+      "human_author": "Adam Creeger <adamcreeger@gmail.com>"
+    }
+  }
+}
